@@ -1,0 +1,48 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PDFill-Sign</title>
+  <style>
+    body { margin: 0; font-family: Arial, sans-serif; background: #1e1e1e; color: white; height: 100vh; display: flex; flex-direction: column; }
+    header { background: #252525; padding: 20px; display: flex; justify-content: space-between; align-items: center; }
+    .canvas-container { flex-grow: 1; margin: 20px; padding: 20px; background: white; color: black; border-radius: 10px; overflow-y: auto; }
+    .toggle-button { position: fixed; bottom: 100px; right: 20px; background: #444; color: white; border-radius: 10px; padding: 10px 15px; cursor: pointer; border: 1px solid #777; }
+    .toolbar { position: fixed; bottom: 0; width: 100%; background: #2f2f2f; display: flex; justify-content: space-around; padding: 10px 0; transition: transform 0.3s ease-in-out; }
+    .toolbar.hidden { transform: translateY(100%); }
+    .tool-icon img { width: 64px; height: 64px; border-radius: 50%; background: #2f2f2f; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>PDFill-Sign</h1>
+    <button style="background:#444; color:white; border:1px solid #777; border-radius:6px; padding:8px 12px;">Light Mode</button>
+  </header>
+
+  <div class="canvas-container">
+    <p>Sample Document:</p>
+    <p>John Doe</p>
+    <hr style="width: 200px; margin-left: 0;">
+    <p>This is a test annotation in the live editor.</p>
+  </div>
+
+  <div class="toggle-button" onclick="toggleToolbar()">[=]</div>
+
+  <div class="toolbar hidden" id="toolbar">
+    <div class="tool-icon"><img src="icons/text.png" alt="text" /></div>
+    <div class="tool-icon"><img src="icons/draw.png" alt="draw" /></div>
+    <div class="tool-icon"><img src="icons/pan.png" alt="pan" /></div>
+    <div class="tool-icon"><img src="icons/highlight.png" alt="highlight" /></div>
+    <div class="tool-icon"><img src="icons/export.png" alt="export" /></div>
+    <div class="tool-icon"><img src="icons/darkmode.png" alt="darkmode" /></div>
+  </div>
+
+  <script>
+    function toggleToolbar() {
+      document.getElementById('toolbar').classList.toggle('hidden');
+    }
+  </script>
+</body>
+</html>

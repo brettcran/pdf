@@ -1,175 +1,56 @@
 
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <title>PDFill-Sign</title>
+  <meta charset="UTF-8"/>
+  <title>PDFill-Sign with Side Menu</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <style>
-    body { margin: 0; font-family: Arial, sans-serif; background: #1e1e1e; color: white; height: 100vh; display: flex; flex-direction: column; }
-    header { background: #252525; padding: 20px; display: flex; justify-content: space-between; align-items: center; }
-    #pdf-viewer { flex-grow: 1; background: #f5f5f5; overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding-bottom: 100px; position: relative; }
-    canvas { border: 1px solid #ccc; background: white; max-width: 95vw; height: auto; display: block; }
-    .toolbar { position: fixed; bottom: 0; width: 100%; background: #2f2f2f; display: flex; justify-content: space-around; padding: 10px 0; transition: transform 0.3s ease-in-out; }
-    .toolbar.hidden { transform: translateY(100%); }
-    .tool-icon img { width: 64px; height: 64px; border-radius: 50%; background: #2f2f2f; }
-    .toggle-button { position: fixed; bottom: 120px; right: 20px; background: #444; color: white; border-radius: 10px; padding: 10px 15px; border: 1px solid #777; cursor: pointer; z-index: 1000; }
-    .sig-button { padding: 6px 10px; margin-left: 10px; border: none; background: #4285F4; color: white; border-radius: 6px; cursor: pointer; }
-    .sig-gallery img { width: 120px; margin: 5px; border: 2px solid #666; border-radius: 6px; background: white; cursor: pointer; }
-    .sig-draggable { position: absolute; cursor: move; }
-    #sig-modal { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-                 background: #333; border-radius: 8px; padding: 20px; z-index: 2000; }
-    #sig-modal canvas { background: white; display: block; margin-bottom: 10px; }
-    #sig-modal .sig-button { display: inline-block; margin: 0 5px; }
-    #modal-backdrop {
-      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.5); z-index: 1000;
-    }
+    body { margin: 0; font-family: Arial, sans-serif; display: flex; flex-direction: column; height: 100vh; background: #1e1e1e; color: white; }
+    header { background: #252525; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
+    #pdf-viewer { flex-grow: 1; display: flex; justify-content: center; align-items: flex-start; background: #f5f5f5; padding: 20px; overflow: auto; position: relative; }
+    canvas { background: white; border: 1px solid #ccc; max-width: 95vw; height: auto; }
+    #file-input { background: #444; color: white; padding: 6px 12px; border: none; border-radius: 6px; }
+    .side-menu-toggle { position: absolute; top: 80px; left: 0; background: #444; padding: 10px; cursor: pointer; z-index: 1001; border-radius: 0 6px 6px 0; }
+    .side-menu { position: fixed; left: -200px; top: 0; bottom: 0; width: 200px; background: #2f2f2f; padding: 20px 10px; transition: left 0.3s ease-in-out; z-index: 1000; }
+    .side-menu.open { left: 0; }
+    .menu-button { background: #4285F4; color: white; border: none; padding: 10px; margin: 8px 0; width: 100%; border-radius: 6px; text-align: left; cursor: pointer; }
   </style>
 </head>
 <body>
 
 <header>
   <h1>PDFill-Sign</h1>
-  <input type="file" id="file-input" accept="application/pdf" />
-  <button class="sig-button" onclick="openSignatureModal()">New Signature</button>
+  <input type="file" id="file-input" accept="application/pdf"/>
 </header>
 
-<div id="modal-backdrop"></div>
-<div id="sig-modal">
-  <canvas id="sig-draw-canvas" width="300" height="150"></canvas><br>
-  <button class="sig-button" onclick="clearSig()">Clear</button>
-  <button class="sig-button" onclick="saveSig()">Save</button>
-  <button class="sig-button" onclick="closeSignatureModal()">Close</button>
+<div class="side-menu" id="sideMenu">
+  <button class="menu-button" onclick="triggerFileInput()">📂 Upload PDF</button>
+  <button class="menu-button" onclick="alert('Signature panel coming soon')">✍️ Add Signature</button>
+  <button class="menu-button" onclick="alert('Text tool coming soon')">🖊️ Add Text</button>
+  <button class="menu-button" onclick="alert('Export logic coming soon')">📤 Export PDF</button>
 </div>
-
-<div class="sig-gallery" id="sig-gallery"></div>
+<div class="side-menu-toggle" onclick="toggleMenu()">☰</div>
 
 <div id="pdf-viewer">
   <canvas id="pdf-canvas"></canvas>
 </div>
 
-<div class="toggle-button" onclick="toggleToolbar()">[=]</div>
-
-<div class="toolbar hidden" id="toolbar">
-<div class="tool-icon"><img src="icons/text.png" alt="text"/></div>
-<div class="tool-icon"><img src="icons/draw.png" alt="draw"/></div>
-<div class="tool-icon"><img src="icons/pan.png" alt="pan"/></div>
-<div class="tool-icon"><img src="icons/highlight.png" alt="highlight"/></div>
-<div class="tool-icon"><img src="icons/export.png" alt="export"/></div>
-<div class="tool-icon"><img src="icons/darkmode.png" alt="darkmode"/></div>
-</div>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
 <script>
+  const viewer = document.getElementById('pdf-viewer');
   const canvas = document.getElementById('pdf-canvas');
   const ctx = canvas.getContext('2d');
-  const viewer = document.getElementById('pdf-viewer');
   const fileInput = document.getElementById('file-input');
-  const sigCanvas = document.getElementById('sig-draw-canvas');
-  const sigCtx = sigCanvas.getContext('2d');
-  const sigGallery = document.getElementById('sig-gallery');
-  const sigModal = document.getElementById('sig-modal');
-  const modalBackdrop = document.getElementById('modal-backdrop');
+  let pdf = null;
 
-  let isDrawing = false, lastX = 0, lastY = 0, signatures = [], pdf = null, currentPdfPage = 1;
-  let placingSigSrc = null;
-
-  function toggleToolbar() {
-    document.getElementById('toolbar').classList.toggle('hidden');
+  function toggleMenu() {
+    document.getElementById("sideMenu").classList.toggle("open");
   }
 
-  function openSignatureModal() {
-    sigModal.style.display = "block";
-    modalBackdrop.style.display = "block";
+  function triggerFileInput() {
+    fileInput.click();
   }
-
-  function closeSignatureModal() {
-    sigModal.style.display = "none";
-    modalBackdrop.style.display = "none";
-    clearSig();
-  }
-
-  function clearSig() {
-    sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
-  }
-
-  function saveSig() {
-    const imgSrc = sigCanvas.toDataURL();
-    if (signatures.length >= 5) {
-      signatures.shift();
-      sigGallery.removeChild(sigGallery.firstChild);
-    }
-    signatures.push(imgSrc);
-    const thumb = new Image();
-    thumb.src = imgSrc;
-    thumb.onclick = () => { placingSigSrc = imgSrc; };
-    sigGallery.appendChild(thumb);
-    closeSignatureModal();
-  }
-
-  viewer.addEventListener("click", (e) => {
-    if (!placingSigSrc) return;
-    const rect = viewer.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    const image = new Image();
-    image.src = placingSigSrc;
-    image.className = "sig-draggable";
-    image.style.left = x + "px";
-    image.style.top = y + "px";
-    image.style.width = "150px";
-
-    let shiftX = 0, shiftY = 0;
-
-    image.onmousedown = function (event) {
-      const imgRect = image.getBoundingClientRect();
-      shiftX = event.clientX - imgRect.left;
-      shiftY = event.clientY - imgRect.top;
-
-      function moveAt(pageX, pageY) {
-        image.style.left = pageX - shiftX - rect.left + 'px';
-        image.style.top = pageY - shiftY - rect.top + 'px';
-      }
-
-      function onMouseMove(event) {
-        moveAt(event.pageX, event.pageY);
-      }
-
-      document.addEventListener('mousemove', onMouseMove);
-      document.addEventListener('mouseup', function onMouseUp() {
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
-      });
-    };
-
-    image.ondragstart = () => false;
-    viewer.appendChild(image);
-    placingSigSrc = null;
-  });
-
-  sigCanvas.addEventListener("mousedown", (e) => {
-    isDrawing = true;
-    lastX = e.offsetX;
-    lastY = e.offsetY;
-  });
-
-  sigCanvas.addEventListener("mousemove", (e) => {
-    if (!isDrawing) return;
-    sigCtx.strokeStyle = "black";
-    sigCtx.lineWidth = 2;
-    sigCtx.lineCap = "round";
-    sigCtx.beginPath();
-    sigCtx.moveTo(lastX, lastY);
-    sigCtx.lineTo(e.offsetX, e.offsetY);
-    sigCtx.stroke();
-    lastX = e.offsetX;
-    lastY = e.offsetY;
-  });
-
-  sigCanvas.addEventListener("mouseup", () => isDrawing = false);
-  sigCanvas.addEventListener("mouseleave", () => isDrawing = false);
 
   fileInput.addEventListener("change", async () => {
     const file = fileInput.files[0];
@@ -180,7 +61,7 @@
       const loadingTask = pdfjsLib.getDocument({ data: typedarray });
       loadingTask.promise.then(function (loadedPdf) {
         pdf = loadedPdf;
-        pdf.getPage(currentPdfPage).then(function (page) {
+        pdf.getPage(1).then(function (page) {
           const desiredWidth = viewer.clientWidth * 0.95;
           const unscaledViewport = page.getViewport({ scale: 1 });
           const scale = desiredWidth / unscaledViewport.width;
@@ -188,6 +69,7 @@
 
           canvas.width = viewport.width;
           canvas.height = viewport.height;
+
           const renderContext = {
             canvasContext: ctx,
             viewport: viewport
@@ -199,5 +81,6 @@
     reader.readAsArrayBuffer(file);
   });
 </script>
+
 </body>
 </html>

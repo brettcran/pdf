@@ -228,7 +228,32 @@
         sigCtx.stroke();
       }
     };
+    
     sigCanvas.onmouseup = () => drawing = false;
+
+    // Mobile touch support
+    sigCanvas.addEventListener("touchstart", e => {
+      const touch = e.touches[0];
+      const rect = sigCanvas.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+      drawing = true;
+      sigCtx.beginPath();
+      sigCtx.moveTo(x, y);
+    });
+
+    sigCanvas.addEventListener("touchmove", e => {
+      if (!drawing) return;
+      const touch = e.touches[0];
+      const rect = sigCanvas.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+      sigCtx.lineTo(x, y);
+      sigCtx.stroke();
+    });
+
+    sigCanvas.addEventListener("touchend", () => drawing = false);
+    
   }
 
   function saveSignature() {

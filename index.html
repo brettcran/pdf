@@ -2,75 +2,67 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <title>PDFill-Sign Final Build</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8" />
+  <title>PDFill-Sign Final Core Build</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    body { margin: 0; display: flex; height: 100vh; overflow: hidden; font-family: Arial, sans-serif; background: #1e1e1e; color: white; }
-    .sidebar { width: 72px; background: #2f2f2f; display: flex; flex-direction: column; align-items: center; padding: 10px 0; }
-    .sidebar button { background: none; border: none; margin: 8px 0; cursor: pointer; padding: 4px; }
-    .sidebar img { width: 40px; height: 40px; }
-
-    .formatting { margin-top: auto; padding-top: 20px; width: 100%; text-align: center; font-size: 12px; }
-    .formatting select, .formatting button { margin: 4px 0; width: 90%; }
-
+    body { margin: 0; font-family: Arial, sans-serif; display: flex; height: 100vh; overflow: hidden; }
+    .sidebar { width: 72px; background: #2f2f2f; display: flex; flex-direction: column; align-items: center; padding: 10px 0; color: white; }
+    .sidebar button { background: none; border: none; margin: 8px 0; cursor: pointer; padding: 6px; color: white; font-size: 20px; }
     #pdf-viewer { flex-grow: 1; background: #f5f5f5; overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 20px; position: relative; }
     canvas { background: white; border: 1px solid #ccc; max-width: 100%; display: block; }
-
-    .draggable { position: absolute; cursor: move; user-select: none; padding: 2px; color: black; background: transparent; font-weight: normal; font-family: Arial, sans-serif; }
-    .bold { font-weight: bold; }
-    .italic { font-style: italic; }
+    .draggable { position: absolute; cursor: move; user-select: none; color: black; font-weight: bold; font-family: Arial; }
+    #sig-modal, #backdrop {
+      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    }
+    #backdrop { background: rgba(0, 0, 0, 0.5); z-index: 1000; }
+    #sig-modal {
+      z-index: 1001; background: #fff; padding: 20px; border-radius: 8px;
+      width: 300px; height: 200px; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    }
+    #sig-canvas { background: #fff; border: 1px solid #ccc; }
   </style>
 </head>
 <body>
 
 <div class="sidebar">
-  <button onclick="triggerFileInput()"><img src="icons/upload.png" alt="Upload"></button>
-  <button onclick="alert('Signature modal coming soon')"><img src="icons/sign.png" alt="Sign"></button>
-  <button onclick="addText()"><img src="icons/text.png" alt="Text"></button>
-  <button onclick="addSymbol('✔')"><img src="icons/check.png" alt="Check"></button>
-  <button onclick="addSymbol('✖')"><img src="icons/xmark.png" alt="X"></button>
-  <button onclick="alert('Export feature coming soon')"><img src="icons/export.png" alt="Export"></button>
-  <button onclick="zoomIn()"><img src="icons/zoom_in.png" alt="Zoom In"></button>
-  <button onclick="zoomOut()"><img src="icons/zoom_out.png" alt="Zoom Out"></button>
-
-  <div class="formatting">
-    <select id="fontSelect">
-      <option value="Arial">Arial</option>
-      <option value="Helvetica">Helvetica</option>
-      <option value="Times New Roman">Times</option>
-      <option value="Georgia">Georgia</option>
-      <option value="Roboto">Roboto</option>
-    </select>
-    <select id="fontSizeSelect">
-      <option value="14px">14px</option>
-      <option value="18px">18px</option>
-      <option value="22px">22px</option>
-      <option value="26px">26px</option>
-    </select>
-    <button onclick="toggleStyle('bold')">B</button>
-    <button onclick="toggleStyle('italic')">I</button>
-  </div>
+  <button onclick="triggerUpload()">📂</button>
+  <button onclick="openSignatureModal()">✍</button>
+  <button onclick="addText()">T</button>
+  <button onclick="addSymbol('✔')">✔</button>
+  <button onclick="addSymbol('✖')">✖</button>
+  <button onclick="exportToPDF()">⬇</button>
+  <button onclick="zoomIn()">＋</button>
+  <button onclick="zoomOut()">－</button>
 </div>
 
-<input type="file" id="file-input" accept="application/pdf" style="display:none"/>
-
+<input type="file" id="file-input" accept="application/pdf" style="display:none" />
 <div id="pdf-viewer">
   <canvas id="pdf-canvas"></canvas>
 </div>
 
+<div id="backdrop"></div>
+<div id="sig-modal">
+  <canvas id="sig-canvas" width="280" height="100"></canvas><br>
+  <button onclick="saveSignature()">Save</button>
+  <button onclick="clearSignature()">Clear</button>
+  <button onclick="closeSignatureModal()">Close</button>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
+  const fileInput = document.getElementById('file-input');
   const canvas = document.getElementById('pdf-canvas');
   const ctx = canvas.getContext('2d');
   const viewer = document.getElementById('pdf-viewer');
-  const fileInput = document.getElementById('file-input');
   let pdf = null;
   let currentPage = 1;
   let currentScale = 1.25;
-  let lastTextEl = null;
+  let signatureData = "";
+  let placedItems = [];
 
-  function triggerFileInput() {
+  function triggerUpload() {
     fileInput.click();
   }
 
@@ -84,6 +76,20 @@
     renderPage(currentPage, currentScale);
   }
 
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+      const typedarray = new Uint8Array(this.result);
+      pdfjsLib.getDocument({ data: typedarray }).promise.then(loadedPdf => {
+        pdf = loadedPdf;
+        renderPage(currentPage, currentScale);
+      });
+    };
+    reader.readAsArrayBuffer(file);
+  });
+
   function renderPage(pageNum, scale) {
     pdf.getPage(pageNum).then(function (page) {
       const viewport = page.getViewport({ scale });
@@ -93,33 +99,15 @@
     });
   }
 
-  fileInput.addEventListener("change", async () => {
-    const file = fileInput.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = async function () {
-      const typedarray = new Uint8Array(this.result);
-      const loadingTask = pdfjsLib.getDocument({ data: typedarray });
-      loadingTask.promise.then(function (loadedPdf) {
-        pdf = loadedPdf;
-        renderPage(currentPage, currentScale);
-      });
-    };
-    reader.readAsArrayBuffer(file);
-  });
-
   function createDraggable(content, isText = true) {
     const el = document.createElement("div");
     el.className = "draggable";
-    if (isText) {
-      el.contentEditable = true;
-      lastTextEl = el;
-    }
     el.textContent = content;
+    el.contentEditable = isText;
     el.style.left = "100px";
     el.style.top = "100px";
-    el.style.fontSize = document.getElementById('fontSizeSelect').value;
-    el.style.fontFamily = document.getElementById('fontSelect').value;
+    el.style.fontSize = "16px";
+    el.style.position = "absolute";
 
     el.onmousedown = function (e) {
       const offsetX = e.clientX - el.offsetLeft;
@@ -134,22 +122,103 @@
         document.onmouseup = null;
       };
     };
+
     el.ondragstart = () => false;
     viewer.appendChild(el);
+    placedItems.push(el);
   }
 
   function addText() {
-    createDraggable("Your text here...");
+    createDraggable("Type here...");
   }
 
-  function addSymbol(sym) {
-    createDraggable(sym, false);
+  function addSymbol(symbol) {
+    createDraggable(symbol, false);
   }
 
-  function toggleStyle(style) {
-    if (!lastTextEl) return;
-    if (style === "bold") lastTextEl.classList.toggle("bold");
-    if (style === "italic") lastTextEl.classList.toggle("italic");
+  // Signature modal logic
+  const modal = document.getElementById('sig-modal');
+  const backdrop = document.getElementById('backdrop');
+  const sigCanvas = document.getElementById('sig-canvas');
+  const sigCtx = sigCanvas.getContext('2d');
+  let drawing = false;
+
+  sigCanvas.onmousedown = e => {
+    drawing = true;
+    sigCtx.beginPath();
+    sigCtx.moveTo(e.offsetX, e.offsetY);
+  };
+  sigCanvas.onmousemove = e => {
+    if (!drawing) return;
+    sigCtx.lineTo(e.offsetX, e.offsetY);
+    sigCtx.stroke();
+  };
+  sigCanvas.onmouseup = () => drawing = false;
+  sigCanvas.onmouseleave = () => drawing = false;
+
+  function openSignatureModal() {
+    modal.style.display = "block";
+    backdrop.style.display = "block";
+  }
+  function closeSignatureModal() {
+    modal.style.display = "none";
+    backdrop.style.display = "none";
+  }
+  function clearSignature() {
+    sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+  }
+  function saveSignature() {
+    signatureData = sigCanvas.toDataURL();
+    closeSignatureModal();
+    placeSignature();
+  }
+  function placeSignature() {
+    const img = new Image();
+    img.src = signatureData;
+    img.className = "draggable";
+    img.style.width = "150px";
+    img.style.left = "100px";
+    img.style.top = "100px";
+    img.style.position = "absolute";
+
+    img.onmousedown = function (e) {
+      const offsetX = e.clientX - img.offsetLeft;
+      const offsetY = e.clientY - img.offsetTop;
+      function moveAt(event) {
+        img.style.left = (event.clientX - offsetX) + "px";
+        img.style.top = (event.clientY - offsetY) + "px";
+      }
+      document.onmousemove = moveAt;
+      document.onmouseup = () => {
+        document.onmousemove = null;
+        document.onmouseup = null;
+      };
+    };
+
+    img.ondragstart = () => false;
+    viewer.appendChild(img);
+    placedItems.push(img);
+  }
+
+  // Export logic
+  function exportToPDF() {
+    const { jsPDF } = window.jspdf;
+    const pdfDoc = new jsPDF({ unit: "px", format: [canvas.width, canvas.height] });
+    const canvasData = canvas.toDataURL("image/png");
+    pdfDoc.addImage(canvasData, 'PNG', 0, 0, canvas.width, canvas.height);
+
+    placedItems.forEach(el => {
+      const x = parseInt(el.style.left, 10);
+      const y = parseInt(el.style.top, 10);
+      if (el.tagName === "DIV") {
+        pdfDoc.setFont("helvetica", "normal");
+        pdfDoc.text(el.textContent, x, y + 10);
+      } else if (el.tagName === "IMG") {
+        pdfDoc.addImage(el.src, 'PNG', x, y, el.width, el.height);
+      }
+    });
+
+    pdfDoc.save("annotated_output.pdf");
   }
 </script>
 

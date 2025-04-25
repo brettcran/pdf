@@ -3,7 +3,7 @@
 <html>
 <head>
   <meta charset="utf-8"/>
-  <title>PDFill-Sign Drawing</title>
+  <title>PDFill-Sign Signature Capture</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <style>
     body { margin: 0; font-family: Arial, sans-serif; background: #1e1e1e; color: white; height: 100vh; display: flex; flex-direction: column; }
@@ -11,12 +11,15 @@
     #pdf-upload-form { margin-left: 10px; }
     #pdf-viewer { flex-grow: 1; background: #f5f5f5; overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding-bottom: 100px; position: relative; }
     canvas { border: 1px solid #ccc; background: white; max-width: 95vw; height: auto; display: block; }
-    #draw-canvas { position: absolute; top: 0; left: 0; pointer-events: none; }
+    #sig-draw-canvas { border: 2px dashed #ccc; background: white; margin: 10px auto; display: block; }
     .toolbar { position: fixed; bottom: 0; width: 100%; background: #2f2f2f; display: flex; justify-content: space-around; padding: 10px 0; transition: transform 0.3s ease-in-out; }
     .toolbar.hidden { transform: translateY(100%); }
     .tool-icon img { width: 64px; height: 64px; border-radius: 50%; background: #2f2f2f; }
     .toggle-button { position: fixed; bottom: 120px; right: 20px; background: #444; color: white; border-radius: 10px; padding: 10px 15px; border: 1px solid #777; cursor: pointer; z-index: 1000; }
-    .clear-button { position: fixed; bottom: 200px; right: 20px; z-index: 1000; background: #e74c3c; color: white; padding: 10px 15px; border-radius: 10px; border: none; cursor: pointer; }
+    .sig-controls { padding: 10px; text-align: center; background: #252525; }
+    .sig-button { padding: 10px 15px; margin: 5px; border: none; background: #4285F4; color: white; border-radius: 6px; cursor: pointer; }
+    .sig-gallery img { width: 120px; margin: 5px; border: 2px solid #666; border-radius: 6px; background: white; cursor: pointer; }
+    .sig-draggable { position: absolute; cursor: move; }
   </style>
 </head>
 <body>
@@ -29,13 +32,19 @@
   </form>
 </header>
 
+<div class="sig-controls">
+  <canvas id="sig-draw-canvas" width="300" height="150"></canvas><br>
+  <button class="sig-button" onclick="clearSig()">Clear Signature</button>
+  <button class="sig-button" onclick="saveSig()">Save Signature</button>
+  <button class="sig-button" onclick="placeSig()">Place Signature</button>
+  <div class="sig-gallery" id="sig-gallery"></div>
+</div>
+
 <div id="pdf-viewer">
   <canvas id="pdf-canvas"></canvas>
-  <canvas id="draw-canvas"></canvas>
 </div>
 
 <div class="toggle-button" onclick="toggleToolbar()">[=]</div>
-<button class="clear-button" onclick="clearDrawing()">Clear</button>
 
 <div class="toolbar hidden" id="toolbar">
 <div class="tool-icon"><img src="icons/text.png" alt="text"/></div>
@@ -50,56 +59,93 @@
 <script>
   const fileInput = document.getElementById('file-input');
   const canvas = document.getElementById('pdf-canvas');
-  const drawCanvas = document.getElementById('draw-canvas');
   const ctx = canvas.getContext('2d');
-  const drawCtx = drawCanvas.getContext('2d');
   const viewer = document.getElementById('pdf-viewer');
-  let pdf = null;
+  const sigCanvas = document.getElementById('sig-draw-canvas');
+  const sigCtx = sigCanvas.getContext('2d');
+  const sigGallery = document.getElementById('sig-gallery');
   let isDrawing = false;
   let lastX = 0, lastY = 0;
+  let signatures = [];
 
   function toggleToolbar() {
     document.getElementById('toolbar').classList.toggle('hidden');
   }
 
-  function clearDrawing() {
-    drawCtx.clearRect(0, 0, drawCanvas.width, drawCanvas.height);
+  function clearSig() {
+    sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
   }
 
-  function adjustOverlayCanvas() {
-    drawCanvas.width = canvas.width;
-    drawCanvas.height = canvas.height;
-    drawCanvas.style.width = canvas.style.width;
-    drawCanvas.style.height = canvas.style.height;
-    drawCanvas.style.pointerEvents = "auto";
+  function saveSig() {
+    const img = new Image();
+    img.src = sigCanvas.toDataURL();
+    img.classList.add("sig-thumb");
+    img.onclick = () => placeSig(img.src);
+
+    if (signatures.length >= 5) {
+      signatures.shift();
+      sigGallery.removeChild(sigGallery.firstChild);
+    }
+
+    signatures.push(img.src);
+    sigGallery.appendChild(img);
+    clearSig();
   }
 
-  drawCanvas.addEventListener('mousedown', (e) => {
+  function placeSig(src = null) {
+    const image = new Image();
+    image.src = src || sigCanvas.toDataURL();
+    image.className = "sig-draggable";
+    image.style.top = "100px";
+    image.style.left = "100px";
+    image.style.width = "150px";
+    image.draggable = true;
+
+    image.onmousedown = function (e) {
+      const shiftX = e.clientX - image.getBoundingClientRect().left;
+      const shiftY = e.clientY - image.getBoundingClientRect().top;
+      image.style.zIndex = 1000;
+      function moveAt(pageX, pageY) {
+        image.style.left = pageX - shiftX + 'px';
+        image.style.top = pageY - shiftY + 'px';
+      }
+      function onMouseMove(e) {
+        moveAt(e.pageX, e.pageY);
+      }
+      document.addEventListener('mousemove', onMouseMove);
+      image.onmouseup = function () {
+        document.removeEventListener('mousemove', onMouseMove);
+        image.onmouseup = null;
+      };
+    };
+
+    image.ondragstart = () => false;
+    viewer.appendChild(image);
+  }
+
+  sigCanvas.addEventListener("mousedown", (e) => {
     isDrawing = true;
-    const rect = drawCanvas.getBoundingClientRect();
-    lastX = e.clientX - rect.left;
-    lastY = e.clientY - rect.top;
+    lastX = e.offsetX;
+    lastY = e.offsetY;
   });
 
-  drawCanvas.addEventListener('mousemove', (e) => {
+  sigCanvas.addEventListener("mousemove", (e) => {
     if (!isDrawing) return;
-    const rect = drawCanvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    drawCtx.strokeStyle = "red";
-    drawCtx.lineWidth = 2;
-    drawCtx.lineCap = "round";
-    drawCtx.beginPath();
-    drawCtx.moveTo(lastX, lastY);
-    drawCtx.lineTo(x, y);
-    drawCtx.stroke();
-    lastX = x;
-    lastY = y;
+    sigCtx.strokeStyle = "black";
+    sigCtx.lineWidth = 2;
+    sigCtx.lineCap = "round";
+    sigCtx.beginPath();
+    sigCtx.moveTo(lastX, lastY);
+    sigCtx.lineTo(e.offsetX, e.offsetY);
+    sigCtx.stroke();
+    lastX = e.offsetX;
+    lastY = e.offsetY;
   });
 
-  drawCanvas.addEventListener('mouseup', () => isDrawing = false);
-  drawCanvas.addEventListener('mouseleave', () => isDrawing = false);
+  sigCanvas.addEventListener("mouseup", () => isDrawing = false);
+  sigCanvas.addEventListener("mouseleave", () => isDrawing = false);
 
+  let pdf = null;
   document.getElementById('pdf-upload-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!fileInput.files.length) return;
@@ -124,10 +170,7 @@
             canvasContext: ctx,
             viewport: viewport
           };
-          page.render(renderContext).promise.then(() => {
-            adjustOverlayCanvas();
-            clearDrawing();
-          });
+          page.render(renderContext);
         });
       });
     };

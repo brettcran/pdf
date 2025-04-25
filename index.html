@@ -3,34 +3,41 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <title>PDFill-Sign with Side Menu</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PDFill-Sign Responsive Zoom</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"/>
   <style>
-    body { margin: 0; font-family: Arial, sans-serif; display: flex; flex-direction: column; height: 100vh; background: #1e1e1e; color: white; }
+    body { margin: 0; font-family: Arial, sans-serif; display: flex; flex-direction: column; height: 100vh; background: #1e1e1e; color: white; overflow: hidden; }
     header { background: #252525; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
-    #pdf-viewer { flex-grow: 1; display: flex; justify-content: center; align-items: flex-start; background: #f5f5f5; padding: 20px; overflow: auto; position: relative; }
-    canvas { background: white; border: 1px solid #ccc; max-width: 95vw; height: auto; }
-    #file-input { background: #444; color: white; padding: 6px 12px; border: none; border-radius: 6px; }
+    #pdf-viewer { flex-grow: 1; display: flex; justify-content: center; align-items: flex-start; background: #f5f5f5; padding: 20px; overflow: auto; position: relative; touch-action: pan-x pan-y; }
+    canvas { background: white; border: 1px solid #ccc; display: block; max-width: 100%; height: auto; }
     .side-menu-toggle { position: absolute; top: 80px; left: 0; background: #444; padding: 10px; cursor: pointer; z-index: 1001; border-radius: 0 6px 6px 0; }
-    .side-menu { position: fixed; left: -200px; top: 0; bottom: 0; width: 200px; background: #2f2f2f; padding: 20px 10px; transition: left 0.3s ease-in-out; z-index: 1000; }
+    .side-menu { position: fixed; left: -220px; top: 0; bottom: 0; width: 220px; background: #2f2f2f; padding: 20px 10px; transition: left 0.3s ease-in-out; z-index: 1000; display: flex; flex-direction: column; }
     .side-menu.open { left: 0; }
-    .menu-button { background: #4285F4; color: white; border: none; padding: 10px; margin: 8px 0; width: 100%; border-radius: 6px; text-align: left; cursor: pointer; }
+    .menu-button { background: #4285F4; color: white; border: none; padding: 10px; margin: 6px 0; width: 100%; border-radius: 6px; text-align: left; cursor: pointer; }
+    .zoom-controls { display: none; margin-top: 20px; }
+    @media (min-width: 768px) {
+      .zoom-controls { display: block; }
+    }
   </style>
 </head>
 <body>
 
 <header>
-  <h1>PDFill-Sign</h1>
+  <h1 style="margin:0; font-size:1.2em;">PDFill-Sign</h1>
   <input type="file" id="file-input" accept="application/pdf"/>
 </header>
 
+<div class="side-menu-toggle" onclick="toggleMenu()">☰</div>
 <div class="side-menu" id="sideMenu">
   <button class="menu-button" onclick="triggerFileInput()">📂 Upload PDF</button>
-  <button class="menu-button" onclick="alert('Signature panel coming soon')">✍️ Add Signature</button>
+  <button class="menu-button" onclick="alert('Signature tool coming soon')">✍️ Add Signature</button>
   <button class="menu-button" onclick="alert('Text tool coming soon')">🖊️ Add Text</button>
   <button class="menu-button" onclick="alert('Export logic coming soon')">📤 Export PDF</button>
+  <div class="zoom-controls">
+    <button class="menu-button" onclick="zoomIn()">➕ Zoom In</button>
+    <button class="menu-button" onclick="zoomOut()">➖ Zoom Out</button>
+  </div>
 </div>
-<div class="side-menu-toggle" onclick="toggleMenu()">☰</div>
 
 <div id="pdf-viewer">
   <canvas id="pdf-canvas"></canvas>
@@ -43,6 +50,8 @@
   const ctx = canvas.getContext('2d');
   const fileInput = document.getElementById('file-input');
   let pdf = null;
+  let currentScale = 1.25;
+  let currentPage = 1;
 
   function toggleMenu() {
     document.getElementById("sideMenu").classList.toggle("open");
@@ -50,6 +59,28 @@
 
   function triggerFileInput() {
     fileInput.click();
+  }
+
+  function renderPage(pageNumber, scale) {
+    pdf.getPage(pageNumber).then(function (page) {
+      const viewport = page.getViewport({ scale: scale });
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      page.render({
+        canvasContext: ctx,
+        viewport: viewport
+      });
+    });
+  }
+
+  function zoomIn() {
+    currentScale = Math.min(currentScale + 0.25, 3.0);
+    renderPage(currentPage, currentScale);
+  }
+
+  function zoomOut() {
+    currentScale = Math.max(currentScale - 0.25, 0.5);
+    renderPage(currentPage, currentScale);
   }
 
   fileInput.addEventListener("change", async () => {
@@ -61,25 +92,13 @@
       const loadingTask = pdfjsLib.getDocument({ data: typedarray });
       loadingTask.promise.then(function (loadedPdf) {
         pdf = loadedPdf;
-        pdf.getPage(1).then(function (page) {
-          const desiredWidth = viewer.clientWidth * 0.95;
-          const unscaledViewport = page.getViewport({ scale: 1 });
-          const scale = desiredWidth / unscaledViewport.width;
-          const viewport = page.getViewport({ scale: scale });
-
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-
-          const renderContext = {
-            canvasContext: ctx,
-            viewport: viewport
-          };
-          page.render(renderContext);
-        });
+        renderPage(currentPage, currentScale);
       });
     };
     reader.readAsArrayBuffer(file);
   });
+
+  // Touch support (pinch to zoom on mobile is handled by browser natively with max-width)
 </script>
 
 </body>

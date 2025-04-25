@@ -2,52 +2,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>PDFill-Sign Final Core Build</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8"/>
+  <title>PDFill-Sign Export Alignment Fix</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <style>
-    body { margin: 0; font-family: Arial, sans-serif; display: flex; height: 100vh; overflow: hidden; }
+    body { margin: 0; display: flex; height: 100vh; overflow: hidden; font-family: Arial, sans-serif; }
     .sidebar { width: 72px; background: #2f2f2f; display: flex; flex-direction: column; align-items: center; padding: 10px 0; color: white; }
     .sidebar button { background: none; border: none; margin: 8px 0; cursor: pointer; padding: 6px; color: white; font-size: 20px; }
     #pdf-viewer { flex-grow: 1; background: #f5f5f5; overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 20px; position: relative; }
     canvas { background: white; border: 1px solid #ccc; max-width: 100%; display: block; }
     .draggable { position: absolute; cursor: move; user-select: none; color: black; font-weight: bold; font-family: Arial; }
-    #sig-modal, #backdrop {
-      display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    }
-    #backdrop { background: rgba(0, 0, 0, 0.5); z-index: 1000; }
-    #sig-modal {
-      z-index: 1001; background: #fff; padding: 20px; border-radius: 8px;
-      width: 300px; height: 200px; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    }
-    #sig-canvas { background: #fff; border: 1px solid #ccc; }
   </style>
 </head>
 <body>
 
 <div class="sidebar">
   <button onclick="triggerUpload()">📂</button>
+  <button onclick="queueText()">T</button>
+  <button onclick="queueSymbol('✔')">✔</button>
+  <button onclick="queueSymbol('✖')">✖</button>
   <button onclick="openSignatureModal()">✍</button>
-  <button onclick="addText()">T</button>
-  <button onclick="addSymbol('✔')">✔</button>
-  <button onclick="addSymbol('✖')">✖</button>
   <button onclick="exportToPDF()">⬇</button>
-  <button onclick="zoomIn()">＋</button>
-  <button onclick="zoomOut()">－</button>
 </div>
 
-<input type="file" id="file-input" accept="application/pdf" style="display:none" />
-<div id="pdf-viewer">
+<input type="file" id="file-input" accept="application/pdf" style="display:none"/>
+<div id="pdf-viewer" onclick="handleViewerClick(event)">
   <canvas id="pdf-canvas"></canvas>
 </div>
 
-<div id="backdrop"></div>
-<div id="sig-modal">
-  <canvas id="sig-canvas" width="280" height="100"></canvas><br>
-  <button onclick="saveSignature()">Save</button>
-  <button onclick="clearSignature()">Clear</button>
-  <button onclick="closeSignatureModal()">Close</button>
-</div>
+<canvas id="sig-canvas" width="280" height="100" style="display:none;"></canvas>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -56,24 +39,92 @@
   const canvas = document.getElementById('pdf-canvas');
   const ctx = canvas.getContext('2d');
   const viewer = document.getElementById('pdf-viewer');
-  let pdf = null;
-  let currentPage = 1;
-  let currentScale = 1.25;
+  const sigCanvas = document.getElementById('sig-canvas');
+  const sigCtx = sigCanvas.getContext('2d');
+
+  let pdf = null, currentPage = 1, currentScale = 1.25;
   let signatureData = "";
   let placedItems = [];
 
-  function triggerUpload() {
-    fileInput.click();
+  let placeMode = null;
+  let pendingSymbol = null;
+
+  function triggerUpload() { fileInput.click(); }
+
+  function queueText() { placeMode = "text"; }
+  function queueSymbol(sym) { placeMode = "symbol"; pendingSymbol = sym; }
+  function openSignatureModal() {
+    sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+    placeMode = "signature";
+    alert("Draw your signature, then click to place.");
+    sigCanvas.style.display = "block";
+    sigCanvas.onmousedown = e => {
+      sigCtx.beginPath();
+      sigCtx.moveTo(e.offsetX, e.offsetY);
+      sigCanvas.onmousemove = moveDraw;
+    };
+    sigCanvas.onmouseup = () => sigCanvas.onmousemove = null;
   }
 
-  function zoomIn() {
-    currentScale = Math.min(currentScale + 0.25, 3);
-    renderPage(currentPage, currentScale);
+  function moveDraw(e) {
+    sigCtx.lineTo(e.offsetX, e.offsetY);
+    sigCtx.stroke();
   }
 
-  function zoomOut() {
-    currentScale = Math.max(currentScale - 0.25, 0.5);
-    renderPage(currentPage, currentScale);
+  function handleViewerClick(event) {
+    const rect = viewer.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+
+    if (placeMode === "text") {
+      placeElement("Text here...", x, y, true);
+    } else if (placeMode === "symbol") {
+      placeElement(pendingSymbol, x, y, false);
+    } else if (placeMode === "signature") {
+      signatureData = sigCanvas.toDataURL();
+      sigCanvas.style.display = "none";
+      placeSignatureImage(signatureData, x, y);
+    }
+
+    placeMode = null;
+  }
+
+  function placeElement(content, x, y, editable = true) {
+    const el = document.createElement("div");
+    el.className = "draggable";
+    el.textContent = content;
+    el.contentEditable = editable;
+    el.style.left = x + "px";
+    el.style.top = y + "px";
+    viewer.appendChild(el);
+    dragEnable(el);
+    placedItems.push(el);
+  }
+
+  function placeSignatureImage(src, x, y) {
+    const img = new Image();
+    img.src = src;
+    img.className = "draggable";
+    img.style.width = "150px";
+    img.style.left = x + "px";
+    img.style.top = y + "px";
+    viewer.appendChild(img);
+    dragEnable(img);
+    placedItems.push(img);
+  }
+
+  function dragEnable(el) {
+    el.onmousedown = function (e) {
+      const offsetX = e.clientX - el.offsetLeft;
+      const offsetY = e.clientY - el.offsetTop;
+      function moveAt(e) {
+        el.style.left = (e.clientX - offsetX) + "px";
+        el.style.top = (e.clientY - offsetY) + "px";
+      }
+      document.onmousemove = moveAt;
+      document.onmouseup = () => { document.onmousemove = null; };
+    };
+    el.ondragstart = () => false;
   }
 
   fileInput.addEventListener("change", () => {
@@ -99,122 +150,22 @@
     });
   }
 
-  function createDraggable(content, isText = true) {
-    const el = document.createElement("div");
-    el.className = "draggable";
-    el.textContent = content;
-    el.contentEditable = isText;
-    el.style.left = "100px";
-    el.style.top = "100px";
-    el.style.fontSize = "16px";
-    el.style.position = "absolute";
-
-    el.onmousedown = function (e) {
-      const offsetX = e.clientX - el.offsetLeft;
-      const offsetY = e.clientY - el.offsetTop;
-      function moveAt(event) {
-        el.style.left = (event.clientX - offsetX) + "px";
-        el.style.top = (event.clientY - offsetY) + "px";
-      }
-      document.onmousemove = moveAt;
-      document.onmouseup = () => {
-        document.onmousemove = null;
-        document.onmouseup = null;
-      };
-    };
-
-    el.ondragstart = () => false;
-    viewer.appendChild(el);
-    placedItems.push(el);
-  }
-
-  function addText() {
-    createDraggable("Type here...");
-  }
-
-  function addSymbol(symbol) {
-    createDraggable(symbol, false);
-  }
-
-  // Signature modal logic
-  const modal = document.getElementById('sig-modal');
-  const backdrop = document.getElementById('backdrop');
-  const sigCanvas = document.getElementById('sig-canvas');
-  const sigCtx = sigCanvas.getContext('2d');
-  let drawing = false;
-
-  sigCanvas.onmousedown = e => {
-    drawing = true;
-    sigCtx.beginPath();
-    sigCtx.moveTo(e.offsetX, e.offsetY);
-  };
-  sigCanvas.onmousemove = e => {
-    if (!drawing) return;
-    sigCtx.lineTo(e.offsetX, e.offsetY);
-    sigCtx.stroke();
-  };
-  sigCanvas.onmouseup = () => drawing = false;
-  sigCanvas.onmouseleave = () => drawing = false;
-
-  function openSignatureModal() {
-    modal.style.display = "block";
-    backdrop.style.display = "block";
-  }
-  function closeSignatureModal() {
-    modal.style.display = "none";
-    backdrop.style.display = "none";
-  }
-  function clearSignature() {
-    sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
-  }
-  function saveSignature() {
-    signatureData = sigCanvas.toDataURL();
-    closeSignatureModal();
-    placeSignature();
-  }
-  function placeSignature() {
-    const img = new Image();
-    img.src = signatureData;
-    img.className = "draggable";
-    img.style.width = "150px";
-    img.style.left = "100px";
-    img.style.top = "100px";
-    img.style.position = "absolute";
-
-    img.onmousedown = function (e) {
-      const offsetX = e.clientX - img.offsetLeft;
-      const offsetY = e.clientY - img.offsetTop;
-      function moveAt(event) {
-        img.style.left = (event.clientX - offsetX) + "px";
-        img.style.top = (event.clientY - offsetY) + "px";
-      }
-      document.onmousemove = moveAt;
-      document.onmouseup = () => {
-        document.onmousemove = null;
-        document.onmouseup = null;
-      };
-    };
-
-    img.ondragstart = () => false;
-    viewer.appendChild(img);
-    placedItems.push(img);
-  }
-
-  // Export logic
   function exportToPDF() {
     const { jsPDF } = window.jspdf;
     const pdfDoc = new jsPDF({ unit: "px", format: [canvas.width, canvas.height] });
     const canvasData = canvas.toDataURL("image/png");
     pdfDoc.addImage(canvasData, 'PNG', 0, 0, canvas.width, canvas.height);
 
+    const canvasRect = canvas.getBoundingClientRect();
     placedItems.forEach(el => {
-      const x = parseInt(el.style.left, 10);
-      const y = parseInt(el.style.top, 10);
+      const x = parseInt(el.style.left, 10) * (canvas.width / canvasRect.width);
+      const y = parseInt(el.style.top, 10) * (canvas.height / canvasRect.height);
+
       if (el.tagName === "DIV") {
-        pdfDoc.setFont("helvetica", "normal");
         pdfDoc.text(el.textContent, x, y + 10);
       } else if (el.tagName === "IMG") {
-        pdfDoc.addImage(el.src, 'PNG', x, y, el.width, el.height);
+        const scale = el.width * (canvas.width / canvasRect.width);
+        pdfDoc.addImage(el.src, 'PNG', x, y, scale, scale / 2);
       }
     });
 

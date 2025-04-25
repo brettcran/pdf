@@ -3,26 +3,54 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8"/>
-  <title>PDFill-Sign Compact Icon Sidebar</title>
+  <title>PDFill-Sign Final Build</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <style>
-    body { margin: 0; font-family: Arial, sans-serif; background: #1e1e1e; color: white; height: 100vh; overflow: hidden; display: flex; }
-    #pdf-viewer { flex-grow: 1; background: #f5f5f5; display: flex; justify-content: center; align-items: flex-start; overflow: auto; padding: 20px; position: relative; }
-    canvas { background: white; border: 1px solid #ccc; max-width: 95vw; height: auto; display: block; }
+    body { margin: 0; display: flex; height: 100vh; overflow: hidden; font-family: Arial, sans-serif; background: #1e1e1e; color: white; }
+    .sidebar { width: 72px; background: #2f2f2f; display: flex; flex-direction: column; align-items: center; padding: 10px 0; }
+    .sidebar button { background: none; border: none; margin: 8px 0; cursor: pointer; padding: 4px; }
+    .sidebar img { width: 40px; height: 40px; }
 
-    .side-menu { width: 60px; background: #2f2f2f; height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 10px 0; transition: transform 0.3s ease-in-out; }
-    .menu-button { background: none; border: none; margin: 10px 0; cursor: pointer; padding: 6px; }
-    .menu-button img { width: 32px; height: 32px; }
-    .draggable { position: absolute; cursor: move; font-weight: bold; color: black; background: transparent; user-select: none; }
+    .formatting { margin-top: auto; padding-top: 20px; width: 100%; text-align: center; font-size: 12px; }
+    .formatting select, .formatting button { margin: 4px 0; width: 90%; }
+
+    #pdf-viewer { flex-grow: 1; background: #f5f5f5; overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 20px; position: relative; }
+    canvas { background: white; border: 1px solid #ccc; max-width: 100%; display: block; }
+
+    .draggable { position: absolute; cursor: move; user-select: none; padding: 2px; color: black; background: transparent; font-weight: normal; font-family: Arial, sans-serif; }
+    .bold { font-weight: bold; }
+    .italic { font-style: italic; }
   </style>
 </head>
 <body>
 
-<div class="side-menu" id="sideMenu">
-  <button class="menu-button" onclick="triggerFileInput()"><img src="📂" alt="Upload"></button>
-  <button class="menu-button" onclick="addText()"><img src="🖊️" alt="Text"></button>
-  <button class="menu-button" onclick="addSymbol('✔')"><img src="✅" alt="Check"></button>
-  <button class="menu-button" onclick="addSymbol('✖')"><img src="❌" alt="X"></button>
+<div class="sidebar">
+  <button onclick="triggerFileInput()"><img src="icons/upload.png" alt="Upload"></button>
+  <button onclick="alert('Signature modal coming soon')"><img src="icons/sign.png" alt="Sign"></button>
+  <button onclick="addText()"><img src="icons/text.png" alt="Text"></button>
+  <button onclick="addSymbol('✔')"><img src="icons/check.png" alt="Check"></button>
+  <button onclick="addSymbol('✖')"><img src="icons/xmark.png" alt="X"></button>
+  <button onclick="alert('Export feature coming soon')"><img src="icons/export.png" alt="Export"></button>
+  <button onclick="zoomIn()"><img src="icons/zoom_in.png" alt="Zoom In"></button>
+  <button onclick="zoomOut()"><img src="icons/zoom_out.png" alt="Zoom Out"></button>
+
+  <div class="formatting">
+    <select id="fontSelect">
+      <option value="Arial">Arial</option>
+      <option value="Helvetica">Helvetica</option>
+      <option value="Times New Roman">Times</option>
+      <option value="Georgia">Georgia</option>
+      <option value="Roboto">Roboto</option>
+    </select>
+    <select id="fontSizeSelect">
+      <option value="14px">14px</option>
+      <option value="18px">18px</option>
+      <option value="22px">22px</option>
+      <option value="26px">26px</option>
+    </select>
+    <button onclick="toggleStyle('bold')">B</button>
+    <button onclick="toggleStyle('italic')">I</button>
+  </div>
 </div>
 
 <input type="file" id="file-input" accept="application/pdf" style="display:none"/>
@@ -35,14 +63,34 @@
 <script>
   const canvas = document.getElementById('pdf-canvas');
   const ctx = canvas.getContext('2d');
-  const fileInput = document.getElementById('file-input');
   const viewer = document.getElementById('pdf-viewer');
+  const fileInput = document.getElementById('file-input');
   let pdf = null;
   let currentPage = 1;
   let currentScale = 1.25;
+  let lastTextEl = null;
 
   function triggerFileInput() {
     fileInput.click();
+  }
+
+  function zoomIn() {
+    currentScale = Math.min(currentScale + 0.25, 3);
+    renderPage(currentPage, currentScale);
+  }
+
+  function zoomOut() {
+    currentScale = Math.max(currentScale - 0.25, 0.5);
+    renderPage(currentPage, currentScale);
+  }
+
+  function renderPage(pageNum, scale) {
+    pdf.getPage(pageNum).then(function (page) {
+      const viewport = page.getViewport({ scale });
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      page.render({ canvasContext: ctx, viewport });
+    });
   }
 
   fileInput.addEventListener("change", async () => {
@@ -60,49 +108,48 @@
     reader.readAsArrayBuffer(file);
   });
 
-  function renderPage(pageNum, scale) {
-    pdf.getPage(pageNum).then(function (page) {
-      const viewport = page.getViewport({ scale });
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      const renderContext = { canvasContext: ctx, viewport };
-      page.render(renderContext);
-    });
-  }
-
-  function createDraggableElement(content, type = "text") {
+  function createDraggable(content, isText = true) {
     const el = document.createElement("div");
     el.className = "draggable";
-    el.contentEditable = type === "text";
+    if (isText) {
+      el.contentEditable = true;
+      lastTextEl = el;
+    }
     el.textContent = content;
     el.style.left = "100px";
     el.style.top = "100px";
-    el.style.fontSize = "18px";
+    el.style.fontSize = document.getElementById('fontSizeSelect').value;
+    el.style.fontFamily = document.getElementById('fontSelect').value;
 
-    let offsetX, offsetY;
     el.onmousedown = function (e) {
-      offsetX = e.clientX - el.offsetLeft;
-      offsetY = e.clientY - el.offsetTop;
-      document.onmousemove = function (e) {
-        el.style.left = (e.clientX - offsetX) + "px";
-        el.style.top = (e.clientY - offsetY) + "px";
-      };
-      document.onmouseup = function () {
+      const offsetX = e.clientX - el.offsetLeft;
+      const offsetY = e.clientY - el.offsetTop;
+      function moveAt(event) {
+        el.style.left = (event.clientX - offsetX) + "px";
+        el.style.top = (event.clientY - offsetY) + "px";
+      }
+      document.onmousemove = moveAt;
+      document.onmouseup = () => {
         document.onmousemove = null;
         document.onmouseup = null;
       };
     };
-
     el.ondragstart = () => false;
     viewer.appendChild(el);
   }
 
   function addText() {
-    createDraggableElement("Text here...");
+    createDraggable("Your text here...");
   }
 
-  function addSymbol(symbol) {
-    createDraggableElement(symbol, "symbol");
+  function addSymbol(sym) {
+    createDraggable(sym, false);
+  }
+
+  function toggleStyle(style) {
+    if (!lastTextEl) return;
+    if (style === "bold") lastTextEl.classList.toggle("bold");
+    if (style === "italic") lastTextEl.classList.toggle("italic");
   }
 </script>
 

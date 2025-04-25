@@ -1,9 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>PDFill-Sign</title>
   <style>
     body { margin: 0; font-family: Arial, sans-serif; background: #1e1e1e; color: white; display: flex; flex-direction: column; height: 100vh; }
@@ -13,6 +12,7 @@
     .toolbar { position: fixed; bottom: 0; width: 100%; background: #2f2f2f; display: flex; justify-content: space-around; padding: 10px 0; transition: transform 0.3s ease-in-out; }
     .toolbar.hidden { transform: translateY(100%); }
     .tool-icon img { width: 64px; height: 64px; border-radius: 50%; background: #2f2f2f; }
+    #pdf-upload-form { margin-top: 20px; }
   </style>
 </head>
 <body>
@@ -21,10 +21,12 @@
   <button style="background:#444; color:white; border:1px solid #777; padding: 8px 12px; border-radius: 6px;">Light Mode</button>
 </header>
 <div class="canvas-container">
-  <p>Sample Document:</p>
-  <p>John Doe</p>
-  <hr style="width: 200px; margin-left: 0;">
-  <p>This is a test annotation in the live editor.</p>
+  <p>Upload and Annotate a PDF:</p>
+  <form id="pdf-upload-form">
+    <input type="file" name="pdf" accept="application/pdf" required />
+    <button type="submit">Upload PDF</button>
+  </form>
+  <p id="status"></p>
 </div>
 <div class="toggle-button" onclick="toggleToolbar()">[=]</div>
 <div class="toolbar hidden" id="toolbar">
@@ -39,6 +41,36 @@
   function toggleToolbar() {
     document.getElementById('toolbar').classList.toggle('hidden');
   }
+
+  document.getElementById('pdf-upload-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const fileInput = e.target.elements['pdf'];
+    if (!fileInput.files.length) return;
+
+    const formData = new FormData();
+    formData.append("pdf", fileInput.files[0]);
+    formData.append("annotations", JSON.stringify({ example: "Demo" }));
+
+    const statusEl = document.getElementById('status');
+    statusEl.textContent = "Uploading...";
+
+    try {
+      const response = await fetch("{backend_url}", {
+        method: "POST",
+        body: formData
+      });
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "annotated_output.pdf";
+      a.click();
+      statusEl.textContent = "Download complete.";
+    } catch (err) {
+      statusEl.textContent = "Upload failed.";
+      console.error(err);
+    }
+  });
 </script>
 </body>
 </html>

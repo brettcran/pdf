@@ -2,130 +2,71 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <title>PDFill-Sign Export Alignment Fix</title>
+  <meta charset="UTF-8" />
+  <title>PDFill-Sign Multi-Page</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <style>
-    body { margin: 0; display: flex; height: 100vh; overflow: hidden; font-family: Arial, sans-serif; }
-    .sidebar { width: 72px; background: #2f2f2f; display: flex; flex-direction: column; align-items: center; padding: 10px 0; color: white; }
-    .sidebar button { background: none; border: none; margin: 8px 0; cursor: pointer; padding: 6px; color: white; font-size: 20px; }
-    #pdf-viewer { flex-grow: 1; background: #f5f5f5; overflow: auto; display: flex; justify-content: center; align-items: flex-start; padding: 20px; position: relative; }
-    canvas { background: white; border: 1px solid #ccc; max-width: 100%; display: block; }
-    .draggable { position: absolute; cursor: move; user-select: none; color: black; font-weight: bold; font-family: Arial; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #1e1e1e; color: white; display: flex; height: 100vh; overflow: hidden; }
+    .sidebar { width: 72px; background: #2f2f2f; display: flex; flex-direction: column; align-items: center; padding: 10px 0; }
+    .sidebar button { background: none; border: none; margin: 8px 0; cursor: pointer; padding: 4px; font-size: 20px; color: white; }
+    #pdf-container { flex-grow: 1; background: #f5f5f5; overflow-y: auto; position: relative; padding: 20px; }
+    canvas { background: white; border: 1px solid #ccc; display: block; margin: 0 auto 20px auto; }
+    .draggable { position: absolute; font-weight: bold; color: black; cursor: move; background: transparent; }
   </style>
 </head>
 <body>
 
 <div class="sidebar">
   <button onclick="triggerUpload()">📂</button>
-  <button onclick="queueText()">T</button>
-  <button onclick="queueSymbol('✔')">✔</button>
-  <button onclick="queueSymbol('✖')">✖</button>
-  <button onclick="openSignatureModal()">✍</button>
-  <button onclick="exportToPDF()">⬇</button>
+  <button onclick="setMode('text')">T</button>
+  <button onclick="setMode('check')">✔</button>
+  <button onclick="setMode('x')">✖</button>
+  <button onclick="setMode('sign')">✍</button>
+  <button onclick="exportPDF()">⬇</button>
 </div>
 
 <input type="file" id="file-input" accept="application/pdf" style="display:none"/>
-<div id="pdf-viewer" onclick="handleViewerClick(event)">
-  <canvas id="pdf-canvas"></canvas>
-</div>
-
-<canvas id="sig-canvas" width="280" height="100" style="display:none;"></canvas>
+<div id="pdf-container"></div>
+<canvas id="sig-canvas" width="300" height="120" style="display:none;"></canvas>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
+  const container = document.getElementById('pdf-container');
   const fileInput = document.getElementById('file-input');
-  const canvas = document.getElementById('pdf-canvas');
-  const ctx = canvas.getContext('2d');
-  const viewer = document.getElementById('pdf-viewer');
   const sigCanvas = document.getElementById('sig-canvas');
   const sigCtx = sigCanvas.getContext('2d');
 
-  let pdf = null, currentPage = 1, currentScale = 1.25;
-  let signatureData = "";
-  let placedItems = [];
+  let pdf = null;
+  let mode = null;
+  let signatureData = null;
+  let pageAnnotations = {}; // pageNum => [elements]
 
-  let placeMode = null;
-  let pendingSymbol = null;
+  function setMode(m) {
+    if (m === 'sign') {
+      sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+      sigCanvas.style.display = "block";
+      alert("Draw your signature, then click to place.");
+      sigCanvas.onmousedown = e => {
+        sigCtx.beginPath();
+        sigCtx.moveTo(e.offsetX, e.offsetY);
+        sigCanvas.onmousemove = e2 => {
+          sigCtx.lineTo(e2.offsetX, e2.offsetY);
+          sigCtx.stroke();
+        };
+      };
+      sigCanvas.onmouseup = () => {
+        sigCanvas.onmousemove = null;
+        signatureData = sigCanvas.toDataURL();
+        sigCanvas.style.display = "none";
+        mode = 'sign';
+      };
+    } else {
+      mode = m;
+    }
+  }
 
   function triggerUpload() { fileInput.click(); }
-
-  function queueText() { placeMode = "text"; }
-  function queueSymbol(sym) { placeMode = "symbol"; pendingSymbol = sym; }
-  function openSignatureModal() {
-    sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
-    placeMode = "signature";
-    alert("Draw your signature, then click to place.");
-    sigCanvas.style.display = "block";
-    sigCanvas.onmousedown = e => {
-      sigCtx.beginPath();
-      sigCtx.moveTo(e.offsetX, e.offsetY);
-      sigCanvas.onmousemove = moveDraw;
-    };
-    sigCanvas.onmouseup = () => sigCanvas.onmousemove = null;
-  }
-
-  function moveDraw(e) {
-    sigCtx.lineTo(e.offsetX, e.offsetY);
-    sigCtx.stroke();
-  }
-
-  function handleViewerClick(event) {
-    const rect = viewer.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-
-    if (placeMode === "text") {
-      placeElement("Text here...", x, y, true);
-    } else if (placeMode === "symbol") {
-      placeElement(pendingSymbol, x, y, false);
-    } else if (placeMode === "signature") {
-      signatureData = sigCanvas.toDataURL();
-      sigCanvas.style.display = "none";
-      placeSignatureImage(signatureData, x, y);
-    }
-
-    placeMode = null;
-  }
-
-  function placeElement(content, x, y, editable = true) {
-    const el = document.createElement("div");
-    el.className = "draggable";
-    el.textContent = content;
-    el.contentEditable = editable;
-    el.style.left = x + "px";
-    el.style.top = y + "px";
-    viewer.appendChild(el);
-    dragEnable(el);
-    placedItems.push(el);
-  }
-
-  function placeSignatureImage(src, x, y) {
-    const img = new Image();
-    img.src = src;
-    img.className = "draggable";
-    img.style.width = "150px";
-    img.style.left = x + "px";
-    img.style.top = y + "px";
-    viewer.appendChild(img);
-    dragEnable(img);
-    placedItems.push(img);
-  }
-
-  function dragEnable(el) {
-    el.onmousedown = function (e) {
-      const offsetX = e.clientX - el.offsetLeft;
-      const offsetY = e.clientY - el.offsetTop;
-      function moveAt(e) {
-        el.style.left = (e.clientX - offsetX) + "px";
-        el.style.top = (e.clientY - offsetY) + "px";
-      }
-      document.onmousemove = moveAt;
-      document.onmouseup = () => { document.onmousemove = null; };
-    };
-    el.ondragstart = () => false;
-  }
 
   fileInput.addEventListener("change", () => {
     const file = fileInput.files[0];
@@ -135,38 +76,120 @@
       const typedarray = new Uint8Array(this.result);
       pdfjsLib.getDocument({ data: typedarray }).promise.then(loadedPdf => {
         pdf = loadedPdf;
-        renderPage(currentPage, currentScale);
+        renderAllPages();
       });
     };
     reader.readAsArrayBuffer(file);
   });
 
-  function renderPage(pageNum, scale) {
+  function renderAllPages() {
+    container.innerHTML = "";
+    for (let i = 1; i <= pdf.numPages; i++) {
+      renderPage(i);
+    }
+  }
+
+  function renderPage(pageNum) {
     pdf.getPage(pageNum).then(function (page) {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+      canvas.dataset.pageNumber = pageNum;
+      const scale = 1.25;
       const viewport = page.getViewport({ scale });
       canvas.width = viewport.width;
       canvas.height = viewport.height;
-      page.render({ canvasContext: ctx, viewport });
+      page.render({ canvasContext: ctx, viewport }).promise.then(() => {
+        container.appendChild(canvas);
+        if (!pageAnnotations[pageNum]) pageAnnotations[pageNum] = [];
+        const annotationLayer = document.createElement("div");
+        annotationLayer.style.position = "absolute";
+        annotationLayer.style.top = canvas.offsetTop + "px";
+        annotationLayer.style.left = canvas.offsetLeft + "px";
+        annotationLayer.style.width = canvas.width + "px";
+        annotationLayer.style.height = canvas.height + "px";
+        annotationLayer.className = "annotation-layer";
+        annotationLayer.dataset.page = pageNum;
+        container.appendChild(annotationLayer);
+        canvas.addEventListener("click", e => handleClick(e, canvas, pageNum));
+      });
     });
   }
 
-  function exportToPDF() {
-    const { jsPDF } = window.jspdf;
-    const pdfDoc = new jsPDF({ unit: "px", format: [canvas.width, canvas.height] });
-    const canvasData = canvas.toDataURL("image/png");
-    pdfDoc.addImage(canvasData, 'PNG', 0, 0, canvas.width, canvas.height);
+  function handleClick(e, canvas, pageNum) {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const wrapperRect = container.getBoundingClientRect();
+    const globalX = e.clientX - wrapperRect.left;
+    const globalY = e.clientY - wrapperRect.top;
 
-    const canvasRect = canvas.getBoundingClientRect();
-    placedItems.forEach(el => {
-      const x = parseInt(el.style.left, 10) * (canvas.width / canvasRect.width);
-      const y = parseInt(el.style.top, 10) * (canvas.height / canvasRect.height);
+    let el;
+    if (mode === "text") {
+      el = document.createElement("div");
+      el.textContent = "Text";
+      el.contentEditable = true;
+    } else if (mode === "check") {
+      el = document.createElement("div");
+      el.textContent = "✔";
+    } else if (mode === "x") {
+      el = document.createElement("div");
+      el.textContent = "✖";
+    } else if (mode === "sign" && signatureData) {
+      el = document.createElement("img");
+      el.src = signatureData;
+      el.style.width = "120px";
+    }
 
-      if (el.tagName === "DIV") {
-        pdfDoc.text(el.textContent, x, y + 10);
-      } else if (el.tagName === "IMG") {
-        const scale = el.width * (canvas.width / canvasRect.width);
-        pdfDoc.addImage(el.src, 'PNG', x, y, scale, scale / 2);
+    if (el) {
+      el.className = "draggable";
+      el.style.left = globalX + "px";
+      el.style.top = globalY + "px";
+      el.style.position = "absolute";
+      container.appendChild(el);
+      enableDrag(el);
+      pageAnnotations[pageNum].push(el);
+    }
+
+    mode = null;
+  }
+
+  function enableDrag(el) {
+    el.onmousedown = function (e) {
+      const offsetX = e.clientX - el.offsetLeft;
+      const offsetY = e.clientY - el.offsetTop;
+      function move(e2) {
+        el.style.left = (e2.clientX - offsetX) + "px";
+        el.style.top = (e2.clientY - offsetY) + "px";
       }
+      document.onmousemove = move;
+      document.onmouseup = () => { document.onmousemove = null; };
+    };
+    el.ondragstart = () => false;
+  }
+
+  function exportPDF() {
+    const { jsPDF } = window.jspdf;
+    const pdfDoc = new jsPDF({ unit: "px", format: "a4" });
+
+    const canvases = container.querySelectorAll("canvas");
+    canvases.forEach((canvas, index) => {
+      const imgData = canvas.toDataURL("image/png");
+      const pageNum = canvas.dataset.pageNumber;
+      const rect = canvas.getBoundingClientRect();
+      pdfDoc.addImage(imgData, 'PNG', 0, 0, rect.width, rect.height);
+
+      const items = pageAnnotations[pageNum] || [];
+      items.forEach(el => {
+        const x = parseInt(el.style.left) - canvas.offsetLeft;
+        const y = parseInt(el.style.top) - canvas.offsetTop;
+        if (el.tagName === "DIV") {
+          pdfDoc.text(el.textContent, x, y + 10);
+        } else if (el.tagName === "IMG") {
+          pdfDoc.addImage(el.src, 'PNG', x, y, 120, 60);
+        }
+      });
+
+      if (index < canvases.length - 1) pdfDoc.addPage();
     });
 
     pdfDoc.save("annotated_output.pdf");

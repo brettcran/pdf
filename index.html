@@ -2,152 +2,114 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"/>
-  <title>PDFill-Sign Final Working App</title>
+  <meta charset="UTF-8">
+  <title>PDFill-Sign Export Fix</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <style>
-    body.light { background: #f5f5f5; color: #000; }
-    body.dark { background: #1e1e1e; color: #fff; }
-    body { margin: 0; font-family: Arial; display: flex; height: 100vh; overflow: hidden; transition: background 0.3s, color 0.3s; }
-
-    .sidebar { width: 72px; background: #2f2f2f; display: flex; flex-direction: column; align-items: center; padding: 10px 0; }
-    .sidebar button { background: none; border: none; margin: 8px 0; padding: 4px; cursor: pointer; font-size: 20px; color: white; }
-
-    #pdf-container { flex-grow: 1; background: #fff; overflow-y: auto; position: relative; padding: 20px; }
-
+    body { margin: 0; font-family: Arial; background: #fff; color: #000; display: flex; height: 100vh; overflow: hidden; }
+    .sidebar {
+      width: 72px;
+      background: #2f2f2f;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 10px 0;
+    }
+    .sidebar button {
+      background: none;
+      border: none;
+      margin: 8px 0;
+      padding: 4px;
+      cursor: pointer;
+      font-size: 20px;
+      color: white;
+    }
+    #pdf-container {
+      flex-grow: 1;
+      overflow-y: auto;
+      padding: 10px;
+      background: #f5f5f5;
+      position: relative;
+    }
+    canvas {
+      background: white;
+      margin-bottom: 20px;
+      display: block;
+    }
     .draggable {
       position: absolute;
-      font-weight: bold;
       color: black;
-      background: transparent;
-      cursor: move;
+      font-weight: bold;
       user-select: none;
-    }
-
-    .draggable img {
-      width: 100px;
-    }
-
-    .selected {
-      outline: 2px dashed red;
-    }
-
-    #sig-modal, #settings-modal, #backdrop {
-      display: none;
-      position: fixed;
-      z-index: 1001;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-    }
-
-    #sig-modal, #settings-modal {
-      background: #fff;
-      padding: 20px;
-      border-radius: 10px;
-      width: 300px;
-      color: #000;
-    }
-
-    #backdrop {
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0,0,0,0.5);
-      z-index: 1000;
-      transform: none;
+      cursor: move;
     }
   </style>
 </head>
-<body class="light">
+<body>
 
 <div class="sidebar">
   <button onclick="triggerUpload()">📂</button>
   <button onclick="setMode('text')">T</button>
   <button onclick="setMode('check')">✔</button>
   <button onclick="setMode('x')">✖</button>
-  <button onclick="openSigModal()">✍</button>
   <button onclick="setMode('delete')">🗑️</button>
   <button onclick="exportPDF()">⬇</button>
-  <button onclick="toggleSettings()">⚙️</button>
 </div>
 
 <input type="file" id="file-input" accept="application/pdf" style="display:none"/>
 <div id="pdf-container"></div>
-
-<div id="backdrop" onclick="closeModals()"></div>
-
-<div id="sig-modal">
-  <canvas id="sig-canvas" width="280" height="100" style="border:1px solid #ccc;"></canvas><br>
-  <button onclick="saveSignature()">Save</button>
-  <div id="sig-thumbs"></div>
-</div>
-
-<div id="settings-modal">
-  <label>Font:</label>
-  <select id="fontSelect">
-    <option>Arial</option><option>Helvetica</option><option>Times New Roman</option>
-  </select>
-  <label>Size:</label>
-  <select id="fontSize">
-    <option>12</option><option>14</option><option>16</option><option>18</option>
-  </select>
-  <button onclick="toggleDarkMode()">Toggle Dark Mode</button>
-</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
   const container = document.getElementById("pdf-container");
   const fileInput = document.getElementById("file-input");
-  const sigCanvas = document.getElementById("sig-canvas");
-  const sigCtx = sigCanvas.getContext("2d");
-  const sigThumbs = document.getElementById("sig-thumbs");
 
   let pdf = null;
   let mode = null;
-  let currentSignatures = [];
-  let placedElements = [];
-  let drawing = false;
-
-  fileInput.addEventListener("change", () => {
-    const file = fileInput.files[0];
-    const reader = new FileReader();
-    reader.onload = () => {
-      const typedarray = new Uint8Array(reader.result);
-      pdfjsLib.getDocument({ data: typedarray }).promise.then(loadedPdf => {
-        pdf = loadedPdf;
-        renderAllPages();
-      });
-    };
-    reader.readAsArrayBuffer(file);
-  });
+  let placed = [];
 
   function triggerUpload() {
     fileInput.click();
   }
 
-  function setMode(m) {
-    mode = m;
-  }
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files[0];
+    const reader = new FileReader();
+    reader.onload = function () {
+      const typedarray = new Uint8Array(reader.result);
+      pdfjsLib.getDocument({ data: typedarray }).promise.then(pdfDoc => {
+        pdf = pdfDoc;
+        renderPages();
+      });
+    };
+    reader.readAsArrayBuffer(file);
+  });
 
-  function renderAllPages() {
+  function renderPages() {
     container.innerHTML = "";
     for (let i = 1; i <= pdf.numPages; i++) {
       pdf.getPage(i).then(page => {
         const canvas = document.createElement("canvas");
         const ctx = canvas.getContext("2d");
-        const scale = 1.25;
+        const scale = 1.5;
         const viewport = page.getViewport({ scale });
+
         canvas.width = viewport.width;
         canvas.height = viewport.height;
         canvas.dataset.page = i;
-        canvas.addEventListener("click", e => handleClick(e, canvas));
+
         page.render({ canvasContext: ctx, viewport });
         container.appendChild(canvas);
+
+        canvas.addEventListener("click", e => handleClick(e, canvas));
       });
     }
+  }
+
+  function setMode(m) {
+    mode = m;
   }
 
   function handleClick(e, canvas) {
@@ -157,47 +119,36 @@
 
     if (mode === "text" || mode === "check" || mode === "x") {
       const el = document.createElement("div");
-      el.textContent = mode === "check" ? "✔" : mode === "x" ? "✖" : "Text here...";
-      el.contentEditable = mode === "text";
+      el.textContent = mode === "check" ? "✔" : mode === "x" ? "✖" : "Text";
       el.className = "draggable";
-      el.style.left = e.clientX + "px";
-      el.style.top = e.clientY + "px";
-      el.style.fontSize = document.getElementById("fontSize").value + "px";
-      el.style.fontFamily = document.getElementById("fontSelect").value;
-      enableDragAndDelete(el);
+      el.style.left = `${canvas.offsetLeft + x}px`;
+      el.style.top = `${canvas.offsetTop + y}px`;
+      el.dataset.page = canvas.dataset.page;
       container.appendChild(el);
-      placedElements.push(el);
-    } else if (mode === "sign" && currentSignatures.length > 0) {
-      const img = new Image();
-      img.src = currentSignatures[0]; // place most recent
-      img.className = "draggable";
-      img.style.left = e.clientX + "px";
-      img.style.top = e.clientY + "px";
-      enableDragAndDelete(img);
-      container.appendChild(img);
-      placedElements.push(img);
+      drag(el);
+      placed.push(el);
     } else if (mode === "delete") {
-      const clicked = placedElements.find(el => {
+      const found = placed.find(el => {
         const r = el.getBoundingClientRect();
         return e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
       });
-      if (clicked) {
-        container.removeChild(clicked);
-        placedElements = placedElements.filter(el => el !== clicked);
+      if (found) {
+        container.removeChild(found);
+        placed = placed.filter(el => el !== found);
       }
     }
   }
 
-  function enableDragAndDelete(el) {
+  function drag(el) {
     el.onmousedown = function(e) {
       const offsetX = e.clientX - el.offsetLeft;
       const offsetY = e.clientY - el.offsetTop;
-      function moveAt(e) {
-        el.style.left = (e.clientX - offsetX) + "px";
-        el.style.top = (e.clientY - offsetY) + "px";
+      function move(e2) {
+        el.style.left = (e2.clientX - offsetX) + "px";
+        el.style.top = (e2.clientY - offsetY) + "px";
       }
-      document.onmousemove = moveAt;
-      document.onmouseup = () => document.onmousemove = null;
+      document.onmousemove = move;
+      document.onmouseup = () => { document.onmousemove = null; };
     };
     el.ondragstart = () => false;
   }
@@ -205,83 +156,29 @@
   function exportPDF() {
     const { jsPDF } = window.jspdf;
     const pdfDoc = new jsPDF({ unit: "px", format: "a4" });
+
     const canvases = container.querySelectorAll("canvas");
-    canvases.forEach((canvas, index) => {
-      const imgData = canvas.toDataURL("image/png");
-      const rect = canvas.getBoundingClientRect();
-      pdfDoc.addImage(imgData, 'PNG', 0, 0, rect.width, rect.height);
-      placedElements.forEach(el => {
-        const elRect = el.getBoundingClientRect();
-        if (Math.abs(elRect.top - rect.top) < rect.height) {
-          const x = parseInt(el.style.left);
-          const y = parseInt(el.style.top);
-          if (el.tagName === "DIV") {
-            pdfDoc.text(el.textContent, x, y + 10);
-          } else if (el.tagName === "IMG") {
-            pdfDoc.addImage(el.src, 'PNG', x, y, 100, 50);
-          }
+    canvases.forEach((canvas, i) => {
+      const pageElements = placed.filter(el => el.dataset.page == canvas.dataset.page);
+      const canvasImg = canvas.toDataURL("image/png");
+      const scaleFactor = 595.28 / canvas.width; // A4 width in px at 72dpi
+
+      pdfDoc.addImage(canvasImg, 'PNG', 0, 0, 595.28, canvas.height * scaleFactor);
+
+      pageElements.forEach(el => {
+        const elX = parseInt(el.style.left) - canvas.offsetLeft;
+        const elY = parseInt(el.style.top) - canvas.offsetTop;
+        if (el.tagName === "DIV") {
+          const x = elX * scaleFactor;
+          const y = elY * scaleFactor;
+          pdfDoc.text(el.textContent, x, y + 12);
         }
       });
-      if (index < canvases.length - 1) pdfDoc.addPage();
+
+      if (i < canvases.length - 1) pdfDoc.addPage();
     });
+
     pdfDoc.save("annotated_output.pdf");
-  }
-
-  function openSigModal() {
-    sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
-    document.getElementById("sig-modal").style.display = "block";
-    document.getElementById("backdrop").style.display = "block";
-    sigCanvas.onmousedown = e => {
-      drawing = true;
-      sigCtx.beginPath();
-      sigCtx.moveTo(e.offsetX, e.offsetY);
-    };
-    sigCanvas.onmousemove = e => {
-      if (drawing) {
-        sigCtx.lineTo(e.offsetX, e.offsetY);
-        sigCtx.stroke();
-      }
-    };
-    sigCanvas.onmouseup = () => drawing = false;
-  }
-
-  function saveSignature() {
-    if (currentSignatures.length >= 3) currentSignatures.shift();
-    currentSignatures.push(sigCanvas.toDataURL());
-    updateSignatureThumbs();
-    closeModals();
-  }
-
-  function updateSignatureThumbs() {
-    sigThumbs.innerHTML = "";
-    currentSignatures.forEach((sig, idx) => {
-      const img = new Image();
-      img.src = sig;
-      img.width = 80;
-      img.style.margin = "5px";
-      img.onclick = () => {
-        mode = "sign";
-        currentSignatures = [sig]; // set selected as active
-        closeModals();
-      };
-      sigThumbs.appendChild(img);
-    });
-  }
-
-  function toggleSettings() {
-    document.getElementById("settings-modal").style.display = "block";
-    document.getElementById("backdrop").style.display = "block";
-  }
-
-  function toggleDarkMode() {
-    document.body.classList.toggle("dark");
-    document.body.classList.toggle("light");
-  }
-
-  function closeModals() {
-    document.getElementById("sig-modal").style.display = "none";
-    document.getElementById("settings-modal").style.display = "none";
-    document.getElementById("backdrop").style.display = "none";
   }
 </script>
 </body>

@@ -2,78 +2,39 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>PDFill-Sign Final</title>
+  <title>PDFill-Sign Final Merged</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <style>
-    body.light { background: #f5f5f5; color: #000; }
-    body.dark { background: #1e1e1e; color: #fff; }
-    body { margin: 0; font-family: Arial; transition: background 0.3s, color 0.3s; }
-    .sidebar { width: 72px; background: #2f2f2f; position: fixed; top: 0; bottom: 0; left: 0; display: flex; flex-direction: column; align-items: center; padding: 10px 0; }
-    .sidebar button { background: none; border: none; margin: 10px 0; cursor: pointer; font-size: 20px; color: white; }
-    #pdf-container { margin-left: 72px; padding: 20px; overflow-y: auto; height: 100vh; position: relative; }
-    canvas { display: block; margin-bottom: 20px; background: white; border: 1px solid #ccc; }
-    .draggable { position: absolute; font-weight: bold; cursor: move; user-select: none; }
-    #settings-modal, #sig-modal, #help-modal, #backdrop { display: none; position: fixed; z-index: 1001; }
-    #backdrop { width: 100%; height: 100%; background: rgba(0,0,0,0.5); top: 0; left: 0; z-index: 1000; }
-    #settings-modal, #sig-modal, #help-modal { top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; padding: 20px; border-radius: 10px; color: #000; }
-  </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
-<body class="light">
+<body class="light" style="margin:0;">
 
-<div class="sidebar">
+<div class="sidebar" style="width:72px;background:#2f2f2f;position:fixed;top:0;bottom:0;left:0;display:flex;flex-direction:column;align-items:center;padding:10px 0;">
   <button onclick="triggerUpload()">📂</button>
   <button onclick="setMode('text')">T</button>
-  <button onclick="openSigModal()">✍</button>
   <button onclick="setMode('check')">✔️</button>
   <button onclick="setMode('x')">❌</button>
   <button onclick="exportPDF()">⬇️</button>
-  <button onclick="openSettings()">⚙️</button>
-  <button onclick="openHelp()">❓</button>
+  <button onclick="zoomIn()">➕</button>
+  <button onclick="zoomOut()">➖</button>
 </div>
 
 <input type="file" id="file-input" accept="application/pdf" style="display:none"/>
-<div id="pdf-container"></div>
+<div id="pdf-container" style="margin-left:72px; padding:20px; overflow-y:auto; height:100vh; position:relative; touch-action:pan-x pan-y;"></div>
 
-<div id="backdrop" onclick="closeModals()"></div>
-
-<div id="sig-modal">
-  <canvas id="sig-canvas" width="280" height="100" style="border:1px solid #ccc;"></canvas><br>
-  <button onclick="saveSignature()">Save</button>
-  <button onclick="closeModals()">✖️ Close</button>
-</div>
-
-<div id="settings-modal">
-  <label>Font:</label><select id="fontSelect"><option>Arial</option><option>Helvetica</option><option>Verdana</option></select>
-  <label>Font Size:</label><select id="fontSize"><option>12</option><option>14</option><option>18</option><option>24</option></select>
-  <label>Font Color:</label><input type="color" id="fontColor" value="#000000" />
-  <button onclick="toggleDarkMode()">Toggle Dark Mode</button>
-  <button onclick="closeModals()">✖️ Close</button>
-</div>
-
-<div id="help-modal">
-  <h3>Help</h3>
-  <p>📂 Upload PDF</p>
-  <p>T Add Text</p>
-  <p>✍ Add Signature</p>
-  <p>✔️ Add Checkmark</p>
-  <p>❌ Add X</p>
-  <p>⬇️ Export PDF</p>
-  <p>⚙️ Settings</p>
-  <button onclick="closeModals()">✖️ Close</button>
-</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 const container = document.getElementById("pdf-container");
 const fileInput = document.getElementById("file-input");
-const sigCanvas = document.getElementById("sig-canvas");
-const sigCtx = sigCanvas.getContext("2d");
-let drawing = false, mode = null, pdf = null;
-let annotations = [], signatureData = "";
+let pdf = null;
+let mode = null;
+let zoomScale = 1.25;
+let uploadedFileName = "annotated_output";
 
 fileInput.addEventListener("change", () => {
   const file = fileInput.files[0];
+  if (file) {
+    uploadedFileName = file.name.replace(/\.[^/.]+$/, "");
+  }
   const reader = new FileReader();
   reader.onload = () => {
     const typedarray = new Uint8Array(reader.result);
@@ -87,6 +48,8 @@ fileInput.addEventListener("change", () => {
 
 function triggerUpload() { fileInput.click(); }
 function setMode(m) { mode = m; }
+function zoomIn() { zoomScale += 0.25; renderAllPages(); }
+function zoomOut() { zoomScale = Math.max(0.5, zoomScale - 0.25); renderAllPages(); }
 
 function renderAllPages() {
   container.innerHTML = "";
@@ -94,8 +57,7 @@ function renderAllPages() {
     pdf.getPage(i).then(page => {
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
-      const scale = 1.25;
-      const viewport = page.getViewport({ scale });
+      const viewport = page.getViewport({ scale: zoomScale });
       canvas.width = viewport.width;
       canvas.height = viewport.height;
       canvas.dataset.page = i;
@@ -136,16 +98,6 @@ function handleClick(e, canvas) {
     el.style.top = `${y}px`;
     container.appendChild(el);
     enableDrag(el);
-  } else if (mode === "sign" && signatureData) {
-    const img = new Image();
-    img.src = signatureData;
-    img.style.position = "absolute";
-    img.style.left = `${x}px`;
-    img.style.top = `${y}px`;
-    img.width = 150;
-    img.className = "draggable";
-    container.appendChild(img);
-    enableDrag(img);
   }
 }
 
@@ -163,45 +115,20 @@ function enableDrag(el) {
   el.ondragstart = () => false;
 }
 
-function openSigModal() {
-  sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
-  document.getElementById("sig-modal").style.display = "block";
-  document.getElementById("backdrop").style.display = "block";
-  sigCanvas.onmousedown = e => {
-    drawing = true;
-    sigCtx.beginPath();
-    sigCtx.moveTo(e.offsetX, e.offsetY);
-  };
-  sigCanvas.onmousemove = e => {
-    if (drawing) {
-      sigCtx.lineTo(e.offsetX, e.offsetY);
-      sigCtx.stroke();
-    }
-  };
-  sigCanvas.onmouseup = () => drawing = false;
-}
-
-function saveSignature() {
-  signatureData = sigCanvas.toDataURL();
-  closeModals();
-  setMode('sign');
-}
-
 function exportPDF() {
   const { jsPDF } = window.jspdf;
   const canvases = container.querySelectorAll("canvas");
 
   if (canvases.length === 0) return;
 
-  const pdfDoc = new jsPDF({ unit: "px", format: [canvases[0].width / zoomScale, canvases[0].height / zoomScale] });
+  const scaleFactor = 0.5;
+  const pdfDoc = new jsPDF({ unit: "px", format: [canvases[0].width * scaleFactor, canvases[0].height * scaleFactor] });
 
   canvases.forEach((canvas, index) => {
     const tempCanvas = document.createElement('canvas');
     const tempCtx = tempCanvas.getContext('2d');
-
-    // Create smaller canvas relative to original 1x zoom (scale down by zoomScale)
-    tempCanvas.width = canvas.width / zoomScale;
-    tempCanvas.height = canvas.height / zoomScale;
+    tempCanvas.width = canvas.width * scaleFactor;
+    tempCanvas.height = canvas.height * scaleFactor;
     tempCtx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
 
     const imgData = tempCanvas.toDataURL("image/jpeg", 0.7);
@@ -213,30 +140,6 @@ function exportPDF() {
   });
 
   pdfDoc.save(`${uploadedFileName}.pdf`);
-}
-
-
-
-function openSettings() {
-  document.getElementById("settings-modal").style.display = "block";
-  document.getElementById("backdrop").style.display = "block";
-}
-
-function openHelp() {
-  document.getElementById("help-modal").style.display = "block";
-  document.getElementById("backdrop").style.display = "block";
-}
-
-function closeModals() {
-  document.getElementById("settings-modal").style.display = "none";
-  document.getElementById("sig-modal").style.display = "none";
-  document.getElementById("help-modal").style.display = "none";
-  document.getElementById("backdrop").style.display = "none";
-}
-
-function toggleDarkMode() {
-  document.body.classList.toggle("dark");
-  document.body.classList.toggle("light");
 }
 </script>
 </body>

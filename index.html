@@ -190,16 +190,34 @@ function saveSignature() {
 function exportPDF() {
   const { jsPDF } = window.jspdf;
   const canvases = container.querySelectorAll("canvas");
-  const pdfDoc = new jsPDF({ unit: "px", format: [canvases[0].width, canvases[0].height] });
+
+  if (canvases.length === 0) return;
+
+  const scaleFactor = 0.5; // 📏 Shrink images by 50% size
+
+  const pdfDoc = new jsPDF({ unit: "px", format: [canvases[0].width * scaleFactor, canvases[0].height * scaleFactor] });
+
   canvases.forEach((canvas, index) => {
-    const imgData = canvas.toDataURL("image/png");
-    pdfDoc.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+    // 📏 Create smaller temporary canvas
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCanvas.width = canvas.width * scaleFactor;
+    tempCanvas.height = canvas.height * scaleFactor;
+    tempCtx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
+
+    // 📷 Save as JPEG instead of PNG (set quality to 70%)
+    const imgData = tempCanvas.toDataURL("image/jpeg", 0.7);
+
+    pdfDoc.addImage(imgData, "JPEG", 0, 0, tempCanvas.width, tempCanvas.height);
+
     if (index < canvases.length - 1) {
       pdfDoc.addPage();
     }
   });
-  pdfDoc.save("annotated_output.pdf");
+
+  pdfDoc.save(`${uploadedFileName}.pdf`);
 }
+
 
 function openSettings() {
   document.getElementById("settings-modal").style.display = "block";

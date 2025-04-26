@@ -71,9 +71,16 @@ const sigCanvas = document.getElementById("sig-canvas");
 const sigCtx = sigCanvas.getContext("2d");
 let drawing = false, mode = null, pdf = null;
 let annotations = [], signatureData = "";
+let uploadedFileName = "annotated_output"; // fallback default
+
+
+let uploadedFileName = "annotated_output"; // fallback default
 
 fileInput.addEventListener("change", () => {
   const file = fileInput.files[0];
+  if (file) {
+    uploadedFileName = file.name.replace(/\.[^/.]+$/, ""); // remove extension
+  }
   const reader = new FileReader();
   reader.onload = () => {
     const typedarray = new Uint8Array(reader.result);
@@ -84,6 +91,7 @@ fileInput.addEventListener("change", () => {
   };
   reader.readAsArrayBuffer(file);
 });
+
 
 function triggerUpload() { fileInput.click(); }
 function setMode(m) { mode = m; }

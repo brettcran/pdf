@@ -20,9 +20,12 @@ h1 {
   display: block;
   margin: 12px auto;
 }
+#pdf-wrapper {
+  margin: 10px 0;
+}
 canvas {
   border: 1px solid #ccc;
-  margin: 10px 0;
+  background: #fff;
   max-width: 100%;
 }
 .toolbar {
@@ -49,4 +52,12 @@ canvas {
 #sig-canvas {
   border: 1px solid #ccc;
   background: #fff;
+}
+.annotation {
+  position: absolute;
+  background: transparent;
+  color: black;
+  font-size: 16px;
+  font-family: Arial;
+  user-select: none;
 }

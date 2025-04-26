@@ -190,16 +190,33 @@ function saveSignature() {
 function exportPDF() {
   const { jsPDF } = window.jspdf;
   const canvases = container.querySelectorAll("canvas");
-  const pdfDoc = new jsPDF({ unit: "px", format: [canvases[0].width, canvases[0].height] });
+  
+  if (canvases.length === 0) return;
+  
+  const scaleFactor = 0.5; // shrink images by 50% to reduce file size
+
+  const pdfDoc = new jsPDF({ unit: "px", format: [canvases[0].width * scaleFactor, canvases[0].height * scaleFactor] });
+
   canvases.forEach((canvas, index) => {
-    const imgData = canvas.toDataURL("image/png");
-    pdfDoc.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+    // Create smaller temporary canvas
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCanvas.width = canvas.width * scaleFactor;
+    tempCanvas.height = canvas.height * scaleFactor;
+    tempCtx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
+
+    const imgData = tempCanvas.toDataURL("image/jpeg", 0.7); // use JPEG (smaller) and set quality
+
+    pdfDoc.addImage(imgData, "JPEG", 0, 0, tempCanvas.width, tempCanvas.height);
+
     if (index < canvases.length - 1) {
       pdfDoc.addPage();
     }
   });
-  pdfDoc.save("annotated_output.pdf");
+
+  pdfDoc.save("*.pdf");
 }
+
 
 function openSettings() {
   document.getElementById("settings-modal").style.display = "block";

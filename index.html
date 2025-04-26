@@ -2,33 +2,48 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>PDFill-Sign Final Merged</title>
+  <title>PDFill-Sign Final Optimized</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/brettcran/pdf@main/assets/icons/styles.css"/>
 </head>
 <body class="light" style="margin:0;">
 
 <div class="sidebar" style="width:72px;background:#2f2f2f;position:fixed;top:0;bottom:0;left:0;display:flex;flex-direction:column;align-items:center;padding:10px 0;">
-  <button onclick="triggerUpload()">📂</button>
-  <button onclick="setMode('text')">T</button>
-  <button onclick="setMode('check')">✔️</button>
-  <button onclick="setMode('x')">❌</button>
-  <button onclick="exportPDF()">⬇️</button>
-  <button onclick="zoomIn()">➕</button>
-  <button onclick="zoomOut()">➖</button>
+  <button onclick="triggerUpload()"><img src="https://raw.githubusercontent.com/brettcran/pdf/main/assets/icons/upload.svg" width="32"></button>
+  <button onclick="setMode('text')"><img src="https://raw.githubusercontent.com/brettcran/pdf/main/assets/icons/text.svg" width="32"></button>
+  <button onclick="openSigModal()"><img src="https://raw.githubusercontent.com/brettcran/pdf/main/assets/icons/signature.svg" width="32"></button>
+  <button onclick="setMode('check')"><img src="https://raw.githubusercontent.com/brettcran/pdf/main/assets/icons/check.svg" width="32"></button>
+  <button onclick="setMode('x')"><img src="https://raw.githubusercontent.com/brettcran/pdf/main/assets/icons/x.svg" width="32"></button>
+  <button onclick="exportPDF()"><img src="https://raw.githubusercontent.com/brettcran/pdf/main/assets/icons/download.svg" width="32"></button>
+  <button onclick="zoomIn()"><img src="https://raw.githubusercontent.com/brettcran/pdf/main/assets/icons/zoomin.svg" width="32"></button>
+  <button onclick="zoomOut()"><img src="https://raw.githubusercontent.com/brettcran/pdf/main/assets/icons/zoomout.svg" width="32"></button>
 </div>
 
 <input type="file" id="file-input" accept="application/pdf" style="display:none"/>
 <div id="pdf-container" style="margin-left:72px; padding:20px; overflow-y:auto; height:100vh; position:relative; touch-action:pan-x pan-y;"></div>
 
+<div id="sig-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:white;padding:20px;z-index:1001;border-radius:8px;">
+  <canvas id="sig-canvas" width="300" height="150" style="border:1px solid black;"></canvas><br>
+  <button onclick="saveSignature()">Save Signature</button>
+  <button onclick="closeSigModal()">Cancel</button>
+</div>
+
+<div id="overlay" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:1000;" onclick="closeSigModal()"></div>
+
 <script>
-const container = document.getElementById("pdf-container");
-const fileInput = document.getElementById("file-input");
 let pdf = null;
 let mode = null;
+let signatureData = "";
+let drawing = false;
 let zoomScale = 1.25;
 let uploadedFileName = "annotated_output";
+
+const container = document.getElementById("pdf-container");
+const fileInput = document.getElementById("file-input");
+const sigModal = document.getElementById("sig-modal");
+const overlay = document.getElementById("overlay");
+const sigCanvas = document.getElementById("sig-canvas");
+const sigCtx = sigCanvas.getContext("2d");
 
 fileInput.addEventListener("change", () => {
   const file = fileInput.files[0];
@@ -38,7 +53,7 @@ fileInput.addEventListener("change", () => {
   const reader = new FileReader();
   reader.onload = () => {
     const typedarray = new Uint8Array(reader.result);
-    pdfjsLib.getDocument({ data: typedarray }).promise.then(doc => {
+    window.pdfjsLib.getDocument({ data: typedarray }).promise.then(doc => {
       pdf = doc;
       renderAllPages();
     });
@@ -50,6 +65,58 @@ function triggerUpload() { fileInput.click(); }
 function setMode(m) { mode = m; }
 function zoomIn() { zoomScale += 0.25; renderAllPages(); }
 function zoomOut() { zoomScale = Math.max(0.5, zoomScale - 0.25); renderAllPages(); }
+
+function openSigModal() {
+  sigCtx.clearRect(0, 0, sigCanvas.width, sigCanvas.height);
+  sigModal.style.display = "block";
+  overlay.style.display = "block";
+
+  sigCanvas.onmousedown = e => {
+    drawing = true;
+    sigCtx.beginPath();
+    sigCtx.moveTo(e.offsetX, e.offsetY);
+  };
+  sigCanvas.onmousemove = e => {
+    if (drawing) {
+      sigCtx.lineTo(e.offsetX, e.offsetY);
+      sigCtx.stroke();
+    }
+  };
+  sigCanvas.onmouseup = () => drawing = false;
+  sigCanvas.ontouchstart = e => {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const rect = sigCanvas.getBoundingClientRect();
+    const x = touch.clientX - rect.left;
+    const y = touch.clientY - rect.top;
+    drawing = true;
+    sigCtx.beginPath();
+    sigCtx.moveTo(x, y);
+  };
+  sigCanvas.ontouchmove = e => {
+    e.preventDefault();
+    if (drawing) {
+      const touch = e.touches[0];
+      const rect = sigCanvas.getBoundingClientRect();
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+      sigCtx.lineTo(x, y);
+      sigCtx.stroke();
+    }
+  };
+  sigCanvas.ontouchend = () => drawing = false;
+}
+
+function saveSignature() {
+  signatureData = sigCanvas.toDataURL();
+  closeSigModal();
+  mode = "sign";
+}
+
+function closeSigModal() {
+  sigModal.style.display = "none";
+  overlay.style.display = "none";
+}
 
 function renderAllPages() {
   container.innerHTML = "";
@@ -70,8 +137,8 @@ function renderAllPages() {
 
 function handleClick(e, canvas) {
   const rect = canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left + canvas.offsetLeft;
-  const y = e.clientY - rect.top + canvas.offsetTop;
+  const x = e.clientX - rect.left + container.scrollLeft;
+  const y = e.clientY - rect.top + container.scrollTop;
 
   if (mode === "text") {
     const el = document.createElement("div");
@@ -98,6 +165,16 @@ function handleClick(e, canvas) {
     el.style.top = `${y}px`;
     container.appendChild(el);
     enableDrag(el);
+  } else if (mode === "sign" && signatureData) {
+    const img = new Image();
+    img.src = signatureData;
+    img.className = "draggable";
+    img.style.width = "150px";
+    img.style.position = "absolute";
+    img.style.left = `${x}px`;
+    img.style.top = `${y}px`;
+    container.appendChild(img);
+    enableDrag(img);
   }
 }
 
@@ -115,10 +192,13 @@ function enableDrag(el) {
   el.ondragstart = () => false;
 }
 
-function exportPDF() {
+async function exportPDF() {
+  if (!window.jspdf) {
+    await import('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  }
   const { jsPDF } = window.jspdf;
-  const canvases = container.querySelectorAll("canvas");
 
+  const canvases = container.querySelectorAll("canvas");
   if (canvases.length === 0) return;
 
   const scaleFactor = 0.5;

@@ -193,21 +193,18 @@ function exportPDF() {
 
   if (canvases.length === 0) return;
 
-  const scaleFactor = 0.5; // 📏 Shrink images by 50% size
-
-  const pdfDoc = new jsPDF({ unit: "px", format: [canvases[0].width * scaleFactor, canvases[0].height * scaleFactor] });
+  const pdfDoc = new jsPDF({ unit: "px", format: [canvases[0].width / zoomScale, canvases[0].height / zoomScale] });
 
   canvases.forEach((canvas, index) => {
-    // 📏 Create smaller temporary canvas
     const tempCanvas = document.createElement('canvas');
     const tempCtx = tempCanvas.getContext('2d');
-    tempCanvas.width = canvas.width * scaleFactor;
-    tempCanvas.height = canvas.height * scaleFactor;
+
+    // Create smaller canvas relative to original 1x zoom (scale down by zoomScale)
+    tempCanvas.width = canvas.width / zoomScale;
+    tempCanvas.height = canvas.height / zoomScale;
     tempCtx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
 
-    // 📷 Save as JPEG instead of PNG (set quality to 70%)
     const imgData = tempCanvas.toDataURL("image/jpeg", 0.7);
-
     pdfDoc.addImage(imgData, "JPEG", 0, 0, tempCanvas.width, tempCanvas.height);
 
     if (index < canvases.length - 1) {
@@ -217,6 +214,7 @@ function exportPDF() {
 
   pdfDoc.save(`${uploadedFileName}.pdf`);
 }
+
 
 
 function openSettings() {

@@ -1,0 +1,52 @@
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #fff;
+  color: #000;
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+}
+.app-container {
+  width: 100%;
+  max-width: 420px;
+}
+h1 {
+  font-size: 24px;
+  text-align: center;
+}
+#file-input {
+  display: block;
+  margin: 12px auto;
+}
+canvas {
+  border: 1px solid #ccc;
+  margin: 10px 0;
+  max-width: 100%;
+}
+.toolbar {
+  display: flex;
+  justify-content: space-around;
+  padding: 10px 0;
+}
+.toolbar button {
+  padding: 10px 16px;
+  border-radius: 10px;
+  border: none;
+  font-size: 15px;
+  background: #eee;
+}
+.toolbar .primary {
+  background: #007aff;
+  color: #fff;
+}
+#signature-box {
+  display: none;
+  margin-top: 10px;
+  text-align: center;
+}
+#sig-canvas {
+  border: 1px solid #ccc;
+  background: #fff;
+}

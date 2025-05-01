@@ -1,30 +1,45 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Fill & Sign PDF</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TurboSign</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="app-container">
-    <h1>Fill & Sign PDF</h1>
-    <input type="file" id="file-input" accept="application/pdf">
-    <div id="pdf-wrapper" style="position: relative;">
-      <canvas id="pdf-canvas"></canvas>
-    </div>
-    <div class="toolbar">
-      <button onclick="downloadPDF()" class="primary">Done</button>
-      <button onclick="activateAnnotateMode()">Annotate</button>
-      <button onclick="openSignature()">Sign</button>
-    </div>
-    <div id="signature-box">
-      <canvas id="sig-canvas" width="280" height="100"></canvas><br>
-      <button onclick="saveSignature()">Save Signature</button>
-    </div>
+
+<div class="landing-container">
+  <h1>Welcome to TurboSign</h1>
+  <button class="upload-btn" id="upload-btn">Open PDF</button>
+<input type="file" id="file-input" accept="application/pdf" style="display:none;">
+  <input type="file" id="file-input" accept="application/pdf" style="display:none;">
+
+  <h2>Recent Files</h2>
+  <div id="recent-files"></div>
+
+  <button class="help-btn" id="help-btn">❓</button>
+</div>
+
+<!-- Help Modal -->
+<div id="help-modal" class="modal">
+  <div class="modal-content">
+    <span id="close-help" class="close">&times;</span>
+    <h2>Help</h2>
+    <ul class="help-list">
+      <li>📄 Open PDF: Upload your file</li>
+      <li>📝 Add Text: Insert a text box</li>
+      <li>✍️ Sign: Draw your signature</li>
+      <li>↩️ Undo: Undo last action</li>
+      <li>↪️ Redo: Redo last action</li>
+      <li>➕➖ Zoom In/Out: Adjust view</li>
+      <li>💾 Save: Save your edited PDF</li>
+    </ul>
   </div>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="app.js"></script>
+</div>
+
+  
+
+
+<script src="scripts/app.js"></script>
 </body>
 </html>

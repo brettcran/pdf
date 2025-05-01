@@ -1,63 +1,246 @@
-
+/* === Global Styles === */
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  background: #fff;
-  color: #000;
+  font-family: 'Poppins', 'Inter', sans-serif;
+  background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+  color: #111827;
+  min-height: 100vh;
+  overflow-x: hidden;
   display: flex;
-  justify-content: center;
-  padding: 20px;
+  flex-direction: column;
+  align-items: center;
 }
-.app-container {
+
+/* === Landing & Editor Containers === */
+.landing-container, #editor-container {
+  text-align: center;
+  margin-top: 80px;
   width: 100%;
-  max-width: 420px;
 }
-h1 {
-  font-size: 24px;
-  text-align: center;
-}
-#file-input {
-  display: block;
-  margin: 12px auto;
-}
-#pdf-wrapper {
-  margin: 10px 0;
-}
-canvas {
-  border: 1px solid #ccc;
-  background: #fff;
-  max-width: 100%;
-}
-.toolbar {
-  display: flex;
-  justify-content: space-around;
-  padding: 10px 0;
-}
-.toolbar button {
-  padding: 10px 16px;
-  border-radius: 10px;
+
+/* === Upload and Toolbar Buttons === */
+.upload-btn, .toolbar-btn {
+  display: inline-block;
+  padding: 12px 24px;
+  font-size: 18px;
   border: none;
-  font-size: 15px;
-  background: #eee;
+  border-radius: 9999px;
+  background: linear-gradient(145deg, #6366f1, #4f46e5);
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.4);
 }
-.toolbar .primary {
-  background: #007aff;
-  color: #fff;
+
+.upload-btn:hover, .toolbar-btn:hover {
+  background: linear-gradient(145deg, #4f46e5, #6366f1);
+  transform: translateY(-2px) scale(1.03);
 }
-#signature-box {
-  display: none;
-  margin-top: 10px;
-  text-align: center;
+
+/* === Toolbar === */
+#toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 16px;
+  background: rgba(255,255,255,0.7);
+  backdrop-filter: blur(12px);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  border-radius: 0 0 16px 16px;
 }
-#sig-canvas {
-  border: 1px solid #ccc;
-  background: #fff;
+
+/* === Help Button === */
+.help-btn {
+  margin-top: 30px;
+  font-size: 24px;
+  background: none;
+  border: none;
+  color: #4f46e5;
+  cursor: pointer;
 }
-.annotation {
+
+.help-btn:hover {
+  text-decoration: underline;
+}
+
+/* === PDF Container === */
+#pdf-container {
+  flex-grow: 1;
+  padding: 20px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-x: hidden;
+}
+
+canvas {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 20px auto;
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+}
+
+/* === Text Box (added text) === */
+.text-box {
   position: absolute;
   background: transparent;
-  color: black;
+  border: 1px dashed #6366f1;
+  border-radius: 8px;
+  min-width: 100px;
+  min-height: 30px;
+  padding: 6px 10px;
   font-size: 16px;
-  font-family: Arial;
-  user-select: none;
+  color: #111827;
+  cursor: move;
+  overflow: hidden;
+  z-index: 10;
+}
+
+.text-box[contenteditable="true"]:focus {
+  outline: none;
+  border: 1px dashed #6366f1;
+}
+
+/* === Signature Image === */
+.signature-image {
+  position: absolute;
+  cursor: move;
+}
+
+/* === Modals === */
+.modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+.modal-content {
+  position: relative;
+  background: #fff;
+  padding: 30px;
+  border-radius: 16px;
+  text-align: center;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+}
+
+.close {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+  color: #555;
+}
+
+.close:hover {
+  color: #000;
+}
+
+/* === Help List inside Modal === */
+.help-list {
+  list-style: none;
+  padding: 0;
+  margin: 30px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  font-size: 16px;
+}
+
+.help-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: center;
+}
+
+/* === Signature Modal === */
+#signature-pad {
+  border-radius: 8px;
+}
+
+.signature-buttons {
+  margin-top: 10px;
+  display: flex;
+  justify-content: space-around;
+}
+
+/* === Mobile Responsive === */
+@media (max-width: 768px) {
+  #toolbar {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .modal-content {
+    width: 90%;
+  }
+}
+
+/* Slide-in text sidebar */
+#text-sidebar {
+  position: absolute;
+  top: 0;
+  right: -280px;
+  width: 280px;
+  height: 100%;
+  background: #fff;
+  box-shadow: -2px 0 6px rgba(0,0,0,0.2);
+  transition: right 0.3s ease;
+}
+#text-sidebar.active {
+  right: 0;
+}
+
+/* Indicate text placement mode */
+#pdf-container.text-mode { cursor: text; }
+
+/* Adjust PDF container margin when text sidebar is active */
+#text-sidebar.active + #pdf-container,
+#pdf-container.text-mode {
+  margin-right: 280px;
+}
+
+/* Cursor for text mode */
+#pdf-container.text-mode { cursor: text; }
+
+/* Sidebar margin and cursor modes */
+#text-sidebar.active ~ #pdf-container {
+  margin-right: 280px;
+}
+#pdf-container.text-mode { cursor: text; }
+#pdf-container.signature-mode { cursor: crosshair; }
+#pdf-container.check-mode { cursor: pointer; }
+#pdf-container.x-mode { cursor: crosshair; }
+#pdf-container.circle-mode { cursor: crosshair; }
+
+/* Responsive toolbar orientation */
+@media (max-width: 768px) {
+  #toolbar { flex-direction: row !important; }
+}
+
+/* --- Additional Global Fixes --- */
+/* Prevent touch conflicts */
+#pdf-container { touch-action: none; }
+/* Ensure PDF container shifts for sidebar */
+#pdf-container.text-mode, #pdf-container.signature-mode,
+#pdf-container.check-mode, #pdf-container.x-mode,
+#pdf-container.circle-mode { margin-right: 280px; }
+/* Responsive toolbar orientation */
+@media (max-width: 768px) {
+  #toolbar { flex-direction: row !important; }
 }

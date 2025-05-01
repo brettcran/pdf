@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TurboSign - Editor</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<input type="file" id="file-input-embed" accept="application/pdf" style="opacity:0;position:absolute;left:-9999px;">
+
+<!-- Toolbar -->
+<div id="toolbar">
+  <button class="toolbar-btn" data-action="add-text">📝</button>
+  <button class="toolbar-btn" data-action="add-signature">✍️</button>
+  <button class="toolbar-btn" data-action="save">💾</button>
+  <button class="toolbar-btn" data-action="zoom-in">➕</button>
+  <button class="toolbar-btn" data-action="zoom-out">➖</button>
+  <button class="toolbar-btn" id="help-btn" data-action="help">❓</button>
+</div>
+
+<div id="text-sidebar" class="sidebar"></div>
+
+<!-- PDF Display -->
+<div id="pdf-container"></div>
+
+<!-- Help Modal -->
+<div id="help-modal" class="modal">
+  <div class="modal-content">
+    <span id="close-help" class="close">&times;</span>
+    <h2>Help Guide</h2>
+    <ul class="help-list">
+      <li>📝 Add Text</li>
+      <li>✍️ Add Signature</li>
+      <li>💾 Save PDF</li>
+      <li>➕ Zoom In</li>
+      <li>➖ Zoom Out</li>
+      <li>❓ Show Help</li>
+    </ul>
+  </div>
+</div>
+
+<!-- Signature Modal -->
+<div id="signature-modal" class="modal">
+  <div class="modal-content">
+    <span id="close-signature" class="close">&times;</span>
+    <h2>Draw Signature</h2>
+    <canvas id="signature-pad" width="300" height="150" style="background: #f9fafb;"></canvas>
+    <div class="signature-buttons">
+      <button onclick="clearSignature()">Clear</button>
+      <button onclick="saveSignature()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts -->
+
+
+
+
+
+
+
+
+
+
+
+
+<script src="scripts/pdfHandler.js"></script>
+<script src="scripts/storageHandler.js"></script>
+<script src="scripts/uiHandler.js"></script>
+<script src="scripts/signatureHandler.js"></script>
+<script src="scripts/app.js"></script>
+</body>
+</html>

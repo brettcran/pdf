@@ -92,6 +92,5 @@ function zoomOut() {
   }
 }
 
-export * from "./pdfHandler.js";
 
 export { loadPDF, savePDF };

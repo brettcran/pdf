@@ -5,6 +5,11 @@ import { createTextBoxAt, insertCheckmark, insertX, insertCircle } from './uiHan
 import { openSignatureModal, closeSignatureModal } from './signatureHandler.js';
 
 document.addEventListener('DOMContentLoaded', () => {
+  // If on editor page, load PDF
+  if (window.location.pathname.endsWith('editor.html')) {
+    loadPDF();
+  }
+
   // Landing page upload
   const uploadBtn = document.getElementById('upload-btn');
   const fileInput = document.getElementById('file-input');

@@ -61,6 +61,41 @@ window.insertCheckmark = insertCheckmark;
 window.insertX = insertX;
 window.insertCircle = insertCircle;
 
-export * from "./uiHandler.js";
 
 export { createTextBoxAt, insertSignature, insertCheckmark, insertX, insertCircle };
+
+function insertCheckmark(x, y) {
+  const container = document.getElementById('pdf-container');
+  const el = document.createElement('div');
+  el.className = 'annotation-checkmark';
+  el.textContent = '✔️';
+  el.style.position = 'absolute';
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  container.appendChild(el);
+}
+function insertX(x, y) {
+  const container = document.getElementById('pdf-container');
+  const el = document.createElement('div');
+  el.className = 'annotation-x';
+  el.textContent = '✖️';
+  el.style.position = 'absolute';
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  container.appendChild(el);
+}
+function insertCircle(x, y) {
+  const container = document.getElementById('pdf-container');
+  const el = document.createElement('div');
+  el.className = 'annotation-circle';
+  el.style.position = 'absolute';
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+  el.style.width = '30px';
+  el.style.height = '30px';
+  el.style.border = '2px solid black';
+  el.style.borderRadius = '50%';
+  container.appendChild(el);
+}
+
+export { createTextBoxAt, insertCheckmark, insertX, insertCircle };

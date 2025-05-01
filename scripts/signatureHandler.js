@@ -81,6 +81,5 @@ function openSignatureModal() {
 // Cleanup key listener on exit
 window.removeEventListener("keydown", sigKeyListener);
 
-export * from "./signatureHandler.js";
 
 export { openSignatureModal, closeSignatureModal };

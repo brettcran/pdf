@@ -41,7 +41,12 @@ function updateRecentFiles(name) {
 
 // Save Current File (for editor.html tracking)
 function saveCurrentFile(name) {
-  localStorage.setItem(CURRENT_FILE_KEY, name);
+  // Add file to recent list, dedupe and limit size
+  let recent = JSON.parse(localStorage.getItem(RECENT_FILES_KEY) || '[]');
+  recent = recent.filter(f => f !== name);
+  recent.unshift(name);
+  if (recent.length > MAX_RECENT_FILES) recent = recent.slice(0, MAX_RECENT_FILES);
+  localStorage.setItem(RECENT_FILES_KEY, JSON.stringify(recent));
 }
 
 // Get Current File
@@ -49,6 +54,6 @@ function getCurrentFile() {
   return localStorage.getItem(CURRENT_FILE_KEY);
 }
 
-export * from "./storageHandler.js";
 
 export { loadRecentFiles, saveCurrentFile };
+export { loadRecentFiles, saveCurrentFile, getCurrentFile };

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>TurboSign</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <div class="landing-container">
+    <h1>Welcome to TurboSign</h1>
+
+    <!-- Open PDF -->
+    <button id="upload-btn">Open PDF</button>
+    <input
+      type="file"
+      id="file-input"
+      accept="application/pdf"
+      style="opacity:0; position:absolute; left:-9999px; width:1px; height:1px;"
+    />
+
+    <!-- Recent Files -->
+    <h2>Recent Files</h2>
+    <ul id="recent-files">
+      <!-- Populated by storageHandler.js -->
+    </ul>
+
+    <!-- Help Modal Trigger -->
+    <button id="help-btn">❓</button>
+
+    <!-- Help Modal -->
+    <div id="help-modal" class="modal">
+      <div class="modal-content">
+        <span id="close-help" class="close">&times;</span>
+        <h2>Help</h2>
+        <ul>
+          <li>Open PDF: Upload your file</li>
+          <li>📝 Add Text: Insert a text box</li>
+          <li>✍️ Sign: Draw your signature</li>
+          <li>↩️ Undo: Undo last action</li>
+          <li>↪️ Redo: Redo last action</li>
+          <li>➕➖ Zoom In/Out: Adjust view</li>
+          <li>💾 Save: Save your edited PDF</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- entrypoint: your module-based application logic -->
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

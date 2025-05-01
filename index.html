@@ -11,32 +11,32 @@
 <div class="landing-container">
   <h1>Welcome to TurboSign</h1>
   <button class="upload-btn" id="upload-btn">Open PDF</button>
-<input type="file" id="file-input" accept="application/pdf" style="opacity:0; position:absolute; left:-9999px; width:1px; height:1px;">
+  <input type="file" id="file-input" accept="application/pdf" style="opacity:0; position:absolute; left:-9999px; width:1px; height:1px;">
 
   <h2>Recent Files</h2>
-  <div id="recent-files"></div>
+  <ul id="recent-files">
+    <!-- Populated by storageHandler.js -->
+  </ul>
 
-  <button class="help-btn" id="help-btn">❓</button>
-</div>
-
-<!-- Help Modal -->
-<div id="help-modal" class="modal">
-  <div class="modal-content">
-    <span id="close-help" class="close">&times;</span>
-    <h2>Help</h2>
-    <ul class="help-list">
-      <li>📄 Open PDF: Upload your file</li>
-      <li>📝 Add Text: Insert a text box</li>
-      <li>✍️ Sign: Draw your signature</li>
-      <li>↩️ Undo: Undo last action</li>
-      <li>↪️ Redo: Redo last action</li>
-      <li>➕➖ Zoom In/Out: Adjust view</li>
-      <li>💾 Save: Save your edited PDF</li>
-    </ul>
+  <button id="help-btn">❓</button>
+  <div id="help-modal" class="modal">
+    <div class="modal-content">
+      <span id="close-help" class="close">&times;</span>
+      <h2>Help</h2>
+      <ul>
+        <li>Open PDF: Upload your file</li>
+        <li>📝 Add Text: Insert a text box</li>
+        <li>✍️ Sign: Draw your signature</li>
+        <li>↩️ Undo: Undo last action</li>
+        <li>↪️ Redo: Redo last action</li>
+        <li>➕➖ Zoom In/Out: Adjust view</li>
+        <li>💾 Save: Save your edited PDF</li>
+      </ul>
+    </div>
   </div>
 </div>
 
-  <script type="module" src="scripts/storageHandler.js"></script>
+<script type="module" src="scripts/storageHandler.js"></script>
 <script type="module" src="scripts/app.js"></script>
 </body>
 </html>
